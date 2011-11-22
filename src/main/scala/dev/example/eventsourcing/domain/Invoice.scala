@@ -1,18 +1,10 @@
 package dev.example.eventsourcing.domain
 
-import javax.xml.bind.annotation._
-import javax.xml.bind.annotation.adapters._
-
-import dev.example.eventsourcing.util.Binding._
-
-@XmlAccessorType(XmlAccessType.NONE)
 case class Invoice(
     id: String,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
     sentTo: Option[InvoiceAddress] = None) extends EventSourced[Invoice] {
-
-  def this() = this(null)
 
   def addItem(item: InvoiceItem): Update[Invoice] =
     update(InvoiceItemAdded(id, item))
@@ -35,10 +27,6 @@ case class Invoice(
   def sum: BigDecimal = items.foldLeft(BigDecimal(0)) {
     (sum, item) => sum + item.amount * item.count
   }
-
-  @XmlElement(required = true)
-  @XmlJavaTypeAdapter(classOf[BigDecimalAdapter])
-  def getTotal = total
 }
 
 object Invoice extends EventSourced[Invoice] {
@@ -48,13 +36,8 @@ object Invoice extends EventSourced[Invoice] {
   }
 }
 
-case class InvoiceItem(description: String, count: Int, amount: BigDecimal) {
-  def this() = this(null, 0, 0)
-}
-
-case class InvoiceAddress(street: String, city: String, state: String) {
-  def this() = this(null, null, null)
-}
+case class InvoiceItem(description: String, count: Int, amount: BigDecimal)
+case class InvoiceAddress(street: String, city: String, state: String)
 
 sealed trait InvoiceEvent extends Event {
   def invoiceId: String
