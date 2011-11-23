@@ -2,9 +2,10 @@ package dev.example.eventsourcing.domain
 
 case class Invoice(
     id: String,
+    version: Long = 0,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None) extends EventSourced[Invoice] {
+    sentTo: Option[InvoiceAddress] = None) extends Aggregate[Invoice] with EventSourced[Invoice] {
 
   def addItem(item: InvoiceItem): Update[Invoice] =
     update(InvoiceItemAdded(id, item))
@@ -18,9 +19,9 @@ case class Invoice(
     else               update(InvoiceSent(id, address))
 
   def handle(event: Event) = event match {
-    case InvoiceItemAdded(_, item)       => copy(items = item :: items)
-    case InvoiceDiscountSet(_, discount) => copy(discount = Some(discount))
-    case InvoiceSent(_, to)              => copy(sentTo = Some(to))
+    case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = item :: items)
+    case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
+    case InvoiceSent(_, to)              => copy(version = version + 1, sentTo = Some(to))
   }
 
   def total: BigDecimal = discount map (_ + sum) getOrElse sum

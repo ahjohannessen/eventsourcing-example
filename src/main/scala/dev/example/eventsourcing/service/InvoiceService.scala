@@ -6,40 +6,40 @@ import scalaz._
 import Scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.MockEventLog
+import dev.example.eventsourcing.log.TestEventLog
 
 class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
   val invoicesRef = Ref(initialState)
-  val eventLog = MockEventLog()
+  val eventLog = TestEventLog()
 
   def createInvoice(invoiceId: String): DomainValidation[Invoice] = atomic {
-    deferred { eventLog.storeAsync() }
+    deferred { eventLog.store() }
     Invoice.create(invoiceId).log(eventLog).result { created =>
       invoicesRef alter { invoices => invoices + (invoiceId -> created) }
     }
   }
 
-  def updateInvoice(invoiceId: String)(f: Invoice => Update[Invoice]): DomainValidation[Invoice] = atomic {
-    deferred { eventLog.storeAsync() }
+  def updateInvoice(invoiceId: String, version: Option[Long])(f: Invoice => Update[Invoice]): DomainValidation[Invoice] = atomic {
+    deferred { eventLog.store() }
     invoicesRef().get(invoiceId) match {
       case None          => DomainError("no invoice with id %s").fail
-      case Some(invoice) => f(invoice).log(eventLog).result { updated =>
+      case Some(invoice) => (for {
+        current <- invoice.require(version)
+        updated <- f(current)
+      } yield updated).log(eventLog).result { updated =>
         invoicesRef alter { invoices => invoices + (invoiceId -> updated) }
       }
     }
   }
 
-  def addInvoiceItem(invoiceId: String, invoiceItem: InvoiceItem) = updateInvoice(invoiceId) { invoice =>
-    invoice.addItem(invoiceItem)
-  }
+  def addInvoiceItem(invoiceId: String, version: Option[Long], invoiceItem: InvoiceItem) =
+    updateInvoice(invoiceId, version) { invoice => invoice.addItem(invoiceItem) }
 
-  def setInvoiceDiscount(invoiceId: String, discount: BigDecimal) = updateInvoice(invoiceId) { invoice =>
-    invoice.setDiscount(discount)
-  }
+  def setInvoiceDiscount(invoiceId: String, version: Option[Long], discount: BigDecimal) =
+    updateInvoice(invoiceId, version) { invoice => invoice.setDiscount(discount) }
 
-  def sendInvoiceTo(invoiceId: String, to: InvoiceAddress) = updateInvoice(invoiceId) { invoice =>
-    invoice.sendTo(to)
-  }
+  def sendInvoiceTo(invoiceId: String, version: Option[Long], to: InvoiceAddress) =
+    updateInvoice(invoiceId, version) { invoice => invoice.sendTo(to) }
 }
 
 object InvoiceService {
