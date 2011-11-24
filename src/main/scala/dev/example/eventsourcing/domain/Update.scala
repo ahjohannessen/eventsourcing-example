@@ -2,7 +2,7 @@ package dev.example.eventsourcing.domain
 
 import scalaz._
 
-trait Update[E, A] {
+trait Update[E, +A] {
   def apply(events: List[E] = Nil): (List[E], DomainValidation[A])
 
   def map[B](f: A => B) = Update[E, B] { events =>
