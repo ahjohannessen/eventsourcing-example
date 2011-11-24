@@ -32,8 +32,13 @@ case class Invoice(
 
 object Invoice extends EventSourced[InvoiceEvent, Invoice] {
   def create(id: String): Update[Invoice] = update(InvoiceCreated(id))
-  def handle(event: InvoiceEvent) = event match {
+
+  def handle(event: InvoiceEvent): Invoice = event match {
     case event @ InvoiceCreated(invoiceId: String) => new Invoice(invoiceId)
+  }
+
+  def handle(events: List[InvoiceEvent]): Invoice = {
+    events.drop(1).foldLeft(handle(events(0))) { (invoice, event) => invoice.handle(event) }
   }
 }
 

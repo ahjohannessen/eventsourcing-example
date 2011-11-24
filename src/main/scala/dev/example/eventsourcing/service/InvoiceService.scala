@@ -53,12 +53,12 @@ object InvoiceService {
     new InvoiceService
 
   def apply(history: List[InvoiceEvent]): InvoiceService =
-    new InvoiceService(replay(history))
+    new InvoiceService(handle(history))
 
   def apply(initialState: Map[String, Invoice]): InvoiceService =
     new InvoiceService(initialState)
 
-  def replay(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
+  def handle(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
     e match {
       case InvoiceCreated(invoiceId) => m + (invoiceId -> Invoice.handle(e))
       case event                     => m + (event.invoiceId -> m(event.invoiceId).handle(e))
