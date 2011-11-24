@@ -14,5 +14,14 @@ class InvoiceSpec extends WordSpec with MustMatchers {
       )
       Invoice.handle(events) must be(Invoice("test", 2, List(InvoiceItem("b", 2, 2), InvoiceItem("a", 1, 1))))
     }
+    "be re-constructured from a reversed list of captured events" in {
+      val update = for {
+        created  <- Invoice.create("test")
+        updated1 <- created.addItem(InvoiceItem("a", 1, 1))
+        updated2 <- updated1.addItem( InvoiceItem("b", 2, 2))
+      } yield updated2
+
+      update.result { (events, updated) => updated must be(Invoice.handle(events.reverse)) }
+    }
   }
 }

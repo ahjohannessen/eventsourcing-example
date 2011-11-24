@@ -5,16 +5,16 @@ case class Invoice(
     version: Long = 0,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None) extends Aggregate[Invoice] with EventSourced[InvoiceEvent, Invoice] {
+    sentTo: Option[InvoiceAddress] = None) extends Aggregate[InvoiceEvent, Invoice] with EventSourced[InvoiceEvent, Invoice] {
 
-  def addItem(item: InvoiceItem): Update[Invoice] =
+  def addItem(item: InvoiceItem): Update[InvoiceEvent, Invoice] =
     update(InvoiceItemAdded(id, item))
 
-  def setDiscount(discount: BigDecimal): Update[Invoice] =
+  def setDiscount(discount: BigDecimal): Update[InvoiceEvent, Invoice] =
     if (sum <= 100) Update.reject(DomainError("discount only on orders with sum > 100"))
     else            update(InvoiceDiscountSet(id, discount))
 
-  def sendTo(address: InvoiceAddress): Update[Invoice] =
+  def sendTo(address: InvoiceAddress): Update[InvoiceEvent, Invoice] =
     if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
     else               update(InvoiceSent(id, address))
 
@@ -31,7 +31,7 @@ case class Invoice(
 }
 
 object Invoice extends EventSourced[InvoiceEvent, Invoice] {
-  def create(id: String): Update[Invoice] = update(InvoiceCreated(id))
+  def create(id: String): Update[InvoiceEvent, Invoice] = update(InvoiceCreated(id))
 
   def handle(event: InvoiceEvent): Invoice = event match {
     case event @ InvoiceCreated(invoiceId: String) => new Invoice(invoiceId)

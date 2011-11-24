@@ -2,24 +2,24 @@ package dev.example.eventsourcing.domain
 
 import scalaz._
 
-trait Update[A] {
-  def apply(events: List[Event] = Nil): (List[Event], DomainValidation[A])
+trait Update[E, A] {
+  def apply(events: List[E] = Nil): (List[E], DomainValidation[A])
 
-  def map[B](f: A => B) = Update { events =>
+  def map[B](f: A => B) = Update[E, B] { events =>
     this(events) match {
       case (updatedEvents, Success(result)) => (updatedEvents, Success(f(result)))
       case (updatedEvents, Failure(errors)) => (updatedEvents, Failure(errors))
     }
   }
 
-  def flatMap[B](f: A => Update[B]) = Update { events =>
+  def flatMap[B](f: A => Update[E, B]) = Update[E, B] { events =>
     this(events) match {
       case (updatedEvents, Success(result)) => f(result)(updatedEvents)
       case (updatedEvents, Failure(errors)) => (updatedEvents, Failure(errors))
     }
   }
 
-  def result(onSuccess: (List[Event], A) => Unit = (e, r) => ()): DomainValidation[A] = {
+  def result(onSuccess: (List[E], A) => Unit = (e, r) => ()): DomainValidation[A] = {
     val (events, validation) = apply()
     validation match {
       case Success(result) => { onSuccess(events, result); Success(result) }
@@ -29,16 +29,16 @@ trait Update[A] {
 }
 
 object Update {
-  def apply[A](f: List[Event] => (List[Event], DomainValidation[A])) = new Update[A] {
-    def apply(events: List[Event]) = f(events)
+  def apply[E, A](f: List[E] => (List[E], DomainValidation[A])) = new Update[E, A] {
+    def apply(events: List[E]) = f(events)
   }
 
-  def accept[A](result: A) =
-    Update(events => (events, Success(result)))
+  def accept[E, A](result: A) =
+    Update[E, A](events => (events, Success(result)))
 
-  def accept[A](event: Event, result: A) =
-    Update(events => (event :: events, Success(result)))
+  def accept[E, A](event: E, result: A) =
+    Update[E, A](events => (event :: events, Success(result)))
 
-  def reject[A](errors: DomainError) =
-    Update[A](events => (events, Failure(errors)))
+  def reject[E, A](errors: DomainError) =
+    Update[E, A](events => (events, Failure(errors)))
 }

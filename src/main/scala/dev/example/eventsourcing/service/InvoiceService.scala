@@ -22,7 +22,7 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
     }
   }
 
-  def updateInvoice(invoiceId: String, version: Option[Long])(f: Invoice => Update[Invoice]): DomainValidation[Invoice] = atomic {
+  def updateInvoice(invoiceId: String, version: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]): DomainValidation[Invoice] = atomic {
     deferred { eventLog.store() }
     invoicesRef().get(invoiceId) match {
       case None          => DomainError("no invoice with id %s").fail

@@ -1,18 +1,18 @@
 package dev.example.eventsourcing.domain
 
-trait Aggregate[A <: Aggregate[A]] {
+trait Aggregate[E <: Event, A <: Aggregate[E, A]] {
   import Aggregate._
 
   def id: String
   def version: Long
 
-  def require(version: Long): Update[A] =
+  def require(version: Long): Update[E, A] =
     if (this.version == version)
       Update.accept(this.asInstanceOf[A])
     else
       Update.reject(invalidVersionError(version, this.version))
 
-  def require(versionOption: Option[Long]): Update[A] = versionOption match {
+  def require(versionOption: Option[Long]): Update[E, A] = versionOption match {
     case Some(v) => require(v)
     case None    => Update.accept(this.asInstanceOf[A])
   }
