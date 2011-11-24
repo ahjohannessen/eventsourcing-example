@@ -5,7 +5,7 @@ case class Invoice(
     version: Long = 0,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None) extends Aggregate[Invoice] with EventSourced[Invoice] {
+    sentTo: Option[InvoiceAddress] = None) extends Aggregate[Invoice] with EventSourced[InvoiceEvent, Invoice] {
 
   def addItem(item: InvoiceItem): Update[Invoice] =
     update(InvoiceItemAdded(id, item))
@@ -18,7 +18,7 @@ case class Invoice(
     if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
     else               update(InvoiceSent(id, address))
 
-  def handle(event: Event): Invoice = event match {
+  def handle(event: InvoiceEvent): Invoice = event match {
     case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = item :: items)
     case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
     case InvoiceSent(_, to)              => copy(version = version + 1, sentTo = Some(to))
@@ -30,9 +30,9 @@ case class Invoice(
   }
 }
 
-object Invoice extends EventSourced[Invoice] {
+object Invoice extends EventSourced[InvoiceEvent, Invoice] {
   def create(id: String): Update[Invoice] = update(InvoiceCreated(id))
-  def handle(event: Event) = event match {
+  def handle(event: InvoiceEvent) = event match {
     case event @ InvoiceCreated(invoiceId: String) => new Invoice(invoiceId)
   }
 }
