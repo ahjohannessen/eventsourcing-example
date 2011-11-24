@@ -9,7 +9,7 @@ trait EventLog {
   val events = Ref[List[Event]](Nil)
   val eventStore: ActorRef
 
-  def append(events: List[Event]) {
+  def log(events: List[Event]) {
     this.events alter { current => events ::: current }
   }
 

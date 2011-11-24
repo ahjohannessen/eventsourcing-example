@@ -19,18 +19,13 @@ trait Update[A] {
     }
   }
 
-  def log(to: {def append(events: List[Event])}) = Update { events =>
-    this(events) match {
-      case (updatedEvents, Success(result)) => { to.append(updatedEvents); (Nil, Success(result)) }
-      case (updatedEvents, Failure(errors)) => { /* no event logging here */ (Nil, Failure(errors)) }
+  def result(onSuccess: (List[Event], A) => Unit = (e, r) => ()): DomainValidation[A] = {
+    val (events, validation) = apply()
+    validation match {
+      case Success(result) => { onSuccess(events, result); Success(result) }
+      case failure         => failure
     }
   }
-
-  def result(onSuccess: A => Unit = (r) => ()): DomainValidation[A] = apply()._2 match {
-    case Success(result) => { onSuccess(result); Success(result) }
-    case failure         => failure
-  }
-
 }
 
 object Update {

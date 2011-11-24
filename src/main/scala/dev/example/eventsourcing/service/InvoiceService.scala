@@ -14,8 +14,9 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
 
   def createInvoice(invoiceId: String): DomainValidation[Invoice] = atomic {
     deferred { eventLog.store() }
-    Invoice.create(invoiceId).log(eventLog).result { created =>
+    Invoice.create(invoiceId).result { (events, created) =>
       invoicesRef alter { invoices => invoices + (invoiceId -> created) }
+      eventLog log events
     }
   }
 
@@ -26,8 +27,9 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
       case Some(invoice) => (for {
         current <- invoice.require(version)
         updated <- f(current)
-      } yield updated).log(eventLog).result { updated =>
+      } yield updated).result { (events, updated) =>
         invoicesRef alter { invoices => invoices + (invoiceId -> updated) }
+        eventLog log events
       }
     }
   }
