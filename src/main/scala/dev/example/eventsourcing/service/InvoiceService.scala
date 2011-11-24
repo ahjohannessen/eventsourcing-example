@@ -15,7 +15,9 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
   def createInvoice(invoiceId: String): DomainValidation[Invoice] = atomic {
     deferred { eventLog.store() }
     Invoice.create(invoiceId).result { (events, created) =>
+      // transactional application state change
       invoicesRef alter { invoices => invoices + (invoiceId -> created) }
+      // transactional event log update
       eventLog log events
     }
   }
@@ -25,10 +27,12 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
     invoicesRef().get(invoiceId) match {
       case None          => DomainError("no invoice with id %s").fail
       case Some(invoice) => (for {
-        current <- invoice.require(version)
-        updated <- f(current)
+        current <- invoice.require(version) // optional version check
+        updated <- f(current)               // caller-supplied update
       } yield updated).result { (events, updated) =>
+        // transactional application state change
         invoicesRef alter { invoices => invoices + (invoiceId -> updated) }
+        // transactional event log update
         eventLog log events
       }
     }
