@@ -21,7 +21,14 @@ class InvoiceSpec extends WordSpec with MustMatchers {
         updated2 <- updated1.addItem( InvoiceItem("b", 2, 2))
       } yield updated2
 
-      update.result { (events, updated) => updated must be(Invoice.handle(events.reverse)) }
+      update.result { (events, updated) =>
+        assert(updated == Invoice.handle(events.reverse))
+        assert(events == List(
+          InvoiceItemAdded("test", InvoiceItem("b", 2, 2)),
+          InvoiceItemAdded("test", InvoiceItem("a", 1, 1)),
+          InvoiceCreated("test"))
+        )
+      }
     }
   }
 }
