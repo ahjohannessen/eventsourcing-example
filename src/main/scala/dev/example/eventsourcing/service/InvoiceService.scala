@@ -6,11 +6,10 @@ import scalaz._
 import Scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.TestEventLog
+import dev.example.eventsourcing.log.EventLog
 
-class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
+class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty) {
   val invoicesRef = Ref(initialState)
-  val eventLog = TestEventLog[InvoiceEvent]()
 
   //
   // Consistent reads
@@ -59,14 +58,14 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
 }
 
 object InvoiceService {
-  def apply(): InvoiceService =
-    new InvoiceService
+  def apply(eventLog: EventLog[InvoiceEvent]): InvoiceService =
+    new InvoiceService(eventLog)
 
-  def apply(history: List[InvoiceEvent]): InvoiceService =
-    new InvoiceService(handle(history))
+  def apply(eventLog: EventLog[InvoiceEvent], history: List[InvoiceEvent]): InvoiceService =
+    new InvoiceService(eventLog, handle(history))
 
-  def apply(initialState: Map[String, Invoice]): InvoiceService =
-    new InvoiceService(initialState)
+  def apply(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice]): InvoiceService =
+    new InvoiceService(eventLog, initialState)
 
   def handle(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
     e match {

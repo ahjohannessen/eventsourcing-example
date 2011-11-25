@@ -8,10 +8,11 @@ import org.scalatest.matchers.MustMatchers
 import scalaz._
 
 import dev.example.eventsourcing.domain._
+import dev.example.eventsourcing.log.TestEventLog
 
 class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val service = InvoiceService()
-  val eventLog = service.eventLog
+  val eventLog = TestEventLog[InvoiceEvent]()
+  val service = InvoiceService(eventLog)
 
   override def afterAll = Actor.registry.shutdownAll()
 
