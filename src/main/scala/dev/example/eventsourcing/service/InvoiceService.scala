@@ -10,7 +10,7 @@ import dev.example.eventsourcing.log.TestEventLog
 
 class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
   val invoicesRef = Ref(initialState)
-  val eventLog = TestEventLog()
+  val eventLog = TestEventLog[InvoiceEvent]()
 
   //
   // Consistent reads

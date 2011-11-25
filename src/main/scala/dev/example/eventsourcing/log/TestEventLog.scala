@@ -1,28 +1,25 @@
 package dev.example.eventsourcing.log
 
+import java.util.concurrent.CopyOnWriteArrayList
+
 import akka.actor.Actor
 import akka.stm.Ref
 
 import dev.example.eventsourcing.domain.Event
 
-class TestEventLog extends EventLog {
-  val eventStore = Actor.actorOf(new TestEventStore(events)).start
+class TestEventLog[E <: Event] extends EventLog[E] {
+  val storedEvents = new CopyOnWriteArrayList[E]()
+  val eventStore = Actor.actorOf(new TestEventStore(events, storedEvents)).start
+
+  import scala.collection.JavaConverters._
+
+  def stored: List[E] = storedEvents.asScala.toList
 }
 
 object TestEventLog {
-  def apply() = new TestEventLog
+  def apply[E <: Event]() = new TestEventLog[E]
 }
 
-class TestEventStore(val events: Ref[List[Event]]) extends Actor with EventStore {
-  import TestEventStore._
-
-  def store(event: Event) = stored = event :: stored
-}
-
-object TestEventStore {
-  var stored = List.empty[Event]
-
-  def clear() {
-    stored = Nil
-  }
+class TestEventStore[E <: Event](val events: Ref[List[E]], stored: CopyOnWriteArrayList[E]) extends Actor with EventStore[E] {
+  def store(event: E) = stored.add(event)
 }

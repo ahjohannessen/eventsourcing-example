@@ -5,11 +5,11 @@ import akka.stm._
 
 import dev.example.eventsourcing.domain.Event
 
-trait EventLog {
-  val events = Ref[List[Event]](Nil)
+trait EventLog[E <: Event] {
+  val events = Ref[List[E]](Nil)
   val eventStore: ActorRef
 
-  def log(events: List[Event]) {
+  def log(events: List[E]) {
     this.events alter { current => events ::: current }
   }
 
@@ -20,8 +20,8 @@ trait EventLog {
     eventStore ! StoreEvents()
 }
 
-trait EventStore { this: Actor =>
-  val events: Ref[List[Event]]
+trait EventStore[E <: Event] { this: Actor =>
+  val events: Ref[List[E]]
 
   def drain() = events update Nil
 
@@ -32,7 +32,7 @@ trait EventStore { this: Actor =>
     }
   }
 
-  def store(event: Event)
+  def store(event: E)
 }
 
 case class StoreEvents()

@@ -8,15 +8,12 @@ import org.scalatest.matchers.MustMatchers
 import scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.TestEventStore
 
 class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
   val service = InvoiceService()
+  val eventLog = service.eventLog
 
-  override def afterAll {
-    Actor.registry.shutdownAll()
-    TestEventStore.clear()
-  }
+  override def afterAll = Actor.registry.shutdownAll()
 
   "An invoice service" when {
     "asked to create a new invoice" must {
@@ -24,8 +21,8 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
         service.createInvoice("test") must be(Success(Invoice("test", version = 0)))
       }
       "have the creation event logged" in {
-        TestEventStore.stored(0) must be(InvoiceCreated("test"))
-        TestEventStore.stored.length must be(1)
+        eventLog.stored.last must be(InvoiceCreated("test"))
+        eventLog.stored.length must be(1)
       }
     }
     "asked to update an existing invoice" must {
@@ -34,8 +31,8 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Success(Invoice(id = "test", version = 1, items = List(InvoiceItem("a", 0, 0)))))
       }
       "have the update event logged" in {
-        TestEventStore.stored(0) must be(InvoiceItemAdded("test", InvoiceItem("a", 0, 0)))
-        TestEventStore.stored.length must be(2)
+        eventLog.stored.last must be(InvoiceItemAdded("test", InvoiceItem("a", 0, 0)))
+        eventLog.stored.length must be(2)
       }
     }
     "asked to update a non- existing invoice" must {
@@ -44,7 +41,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Failure(DomainError("no invoice with id foo")))
       }
       "not have the event log updated" in {
-        TestEventStore.stored.length must be(2)
+        eventLog.stored.length must be(2)
       }
     }
     "asked to update an existing invoice with matching version" must {
@@ -53,8 +50,8 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Success(Invoice(id = "test", version = 2, items = List(InvoiceItem("b", 0, 0), InvoiceItem("a", 0, 0)))))
       }
       "have the update event logged" in {
-        TestEventStore.stored(0) must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))
-        TestEventStore.stored.length must be(3)
+        eventLog.stored.last must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))
+        eventLog.stored.length must be(3)
       }
     }
     "asked to update an existing invoice with non-matching version" must {
@@ -63,7 +60,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Failure(DomainError("expected version = 1, actual version = 2")))
       }
       "not have the event log updated" in {
-        TestEventStore.stored.length must be(3)
+        eventLog.stored.length must be(3)
       }
     }
   }
