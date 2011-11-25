@@ -12,6 +12,16 @@ class InvoiceService(initialState: Map[String, Invoice] = Map.empty) {
   val invoicesRef = Ref(initialState)
   val eventLog = TestEventLog()
 
+  //
+  // Consistent reads
+  //
+
+  def getInvoice(invoiceId: String): Option[Invoice] = invoicesRef().get(invoiceId)
+
+  //
+  // Updates
+  //
+
   def createInvoice(invoiceId: String): DomainValidation[Invoice] = atomic {
     deferred { eventLog.store() }
     Invoice.create(invoiceId).result { (events, created) =>
