@@ -6,11 +6,11 @@ import akka.stm._
 import dev.example.eventsourcing.domain.Event
 
 trait EventLog[E <: Event] {
-  val events = Ref[List[E]](Nil)
+  val eventsRef = Ref[List[E]](Nil)
   val eventStore: ActorRef
 
   def log(events: List[E]) {
-    this.events alter { current => events ::: current }
+    eventsRef alter { current => events ::: current }
   }
 
   def store(/* TODO timeout */) =
@@ -21,9 +21,9 @@ trait EventLog[E <: Event] {
 }
 
 trait EventStore[E <: Event] { this: Actor =>
-  val events: Ref[List[E]]
+  val eventsRef: Ref[List[E]]
 
-  def drain() = events update Nil
+  def drain() = eventsRef update Nil
 
   def receive: Receive = {
     case StoreEvents() => {
