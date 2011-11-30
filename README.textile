@@ -1,0 +1,3 @@
+Blog:
+
+* "Building an Event-Sourced Web Application - Part 1: Domain Model, Events and State":http://krasserm.blogspot.com/2011/11/building-event-sourced-web-application.html (see branch "part-1":https://github.com/krasserm/eventsourcing-example/tree/part-1)
