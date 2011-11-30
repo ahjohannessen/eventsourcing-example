@@ -16,7 +16,8 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
   //
 
   def getInvoice(invoiceId: String): Option[Invoice] = invoicesRef().get(invoiceId)
-
+  def getInvoices: Iterable[Invoice] = invoicesRef().values
+  
   //
   // Updates
   //
