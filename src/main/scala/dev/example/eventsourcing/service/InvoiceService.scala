@@ -23,13 +23,18 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
   //
 
   def createInvoice(invoiceId: String): DomainValidation[Invoice] = atomic {
-    Invoice.create(invoiceId).result { (events, created) =>
-      // transactional application state change
-      invoicesRef alter { invoices => invoices + (invoiceId -> created) }
-      // transactional event log update
-      eventLog.log(events)
-      // event storage after commit
-      deferred { eventLog.store() }
+    invoicesRef().get(invoiceId) match {
+      case Some(_) => DomainError("invoice with id %s already exists" format invoiceId).fail
+      case None    => {
+        Invoice.create(invoiceId).result { (events, created) =>
+          // transactional application state change
+          invoicesRef alter { invoices => invoices + (invoiceId -> created) }
+          // transactional event log update
+          eventLog.log(events)
+          // event storage after commit
+          deferred { eventLog.store() }
+        }
+      }
     }
   }
 

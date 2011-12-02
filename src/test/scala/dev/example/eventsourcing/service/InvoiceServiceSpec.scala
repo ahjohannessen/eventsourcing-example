@@ -26,6 +26,11 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
         eventLog.stored.length must be(1)
       }
     }
+    "asked to create an invoice with an existing id" must {
+      "return an error" in {
+        service.createInvoice("test") must be(Failure(DomainError("invoice with id test already exists")))
+      }
+    }
     "asked to update an existing invoice" must {
       "return the updated invoice" in {
         service.addInvoiceItem("test", None, InvoiceItem("a", 0, 0)) must
