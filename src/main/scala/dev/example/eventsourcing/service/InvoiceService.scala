@@ -40,7 +40,7 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
 
   def updateInvoice(invoiceId: String, version: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]): DomainValidation[Invoice] = atomic {
     invoicesRef().get(invoiceId) match {
-      case None          => DomainError("no invoice with id %s").fail
+      case None          => DomainError("no invoice with id %s" format invoiceId).fail
       case Some(invoice) => (for {
         current <- invoice.require(version) // optional version check
         updated <- f(current)               // caller-supplied update
