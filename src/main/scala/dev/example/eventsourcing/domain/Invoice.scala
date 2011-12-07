@@ -18,7 +18,7 @@ case class Invoice(
     if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
     else               update(InvoiceSent(id, address))
 
-  def handle(event: InvoiceEvent): Invoice = event match {
+  def handle[EE >: InvoiceEvent](event: EE) = event match {
     case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = item :: items)
     case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
     case InvoiceSent(_, to)              => copy(version = version + 1, sentTo = Some(to))
@@ -33,7 +33,7 @@ case class Invoice(
 object Invoice extends EventSourced[InvoiceEvent, Invoice] {
   def create(id: String): Update[InvoiceEvent, Invoice] = update(InvoiceCreated(id))
 
-  def handle(event: InvoiceEvent): Invoice = event match {
+  def handle[EE >: InvoiceEvent](event: EE) = event match {
     case event @ InvoiceCreated(invoiceId: String) => new Invoice(invoiceId)
   }
 

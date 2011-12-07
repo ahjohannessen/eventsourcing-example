@@ -2,8 +2,8 @@ package dev.example.eventsourcing.domain
 
 import scalaz._
 
-trait Update[E, +A] {
-  def apply(events: List[E] = Nil): (List[E], DomainValidation[A])
+trait Update[+E, +A] {
+  def apply[EE >: E](events: List[EE] = Nil): (List[EE], DomainValidation[A])
 
   def map[B](f: A => B) = Update[E, B] { events =>
     this(events) match {
@@ -12,7 +12,7 @@ trait Update[E, +A] {
     }
   }
 
-  def flatMap[B](f: A => Update[E, B]) = Update[E, B] { events =>
+  def flatMap[EE >: E, B](f: A => Update[EE, B]) = Update[EE, B] { events =>
     this(events) match {
       case (updatedEvents, Success(result)) => f(result)(updatedEvents)
       case (updatedEvents, Failure(errors)) => (updatedEvents, Failure(errors))
@@ -30,7 +30,7 @@ trait Update[E, +A] {
 
 object Update {
   def apply[E, A](f: List[E] => (List[E], DomainValidation[A])) = new Update[E, A] {
-    def apply(events: List[E]) = f(events)
+    def apply[EE >: E](events: List[EE]) = f(events.asInstanceOf[List[E]])
   }
 
   def accept[E, A](result: A) =
