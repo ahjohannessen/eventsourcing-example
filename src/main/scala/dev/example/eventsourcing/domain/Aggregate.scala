@@ -6,21 +6,28 @@ trait Aggregate[+E, +A <: Aggregate[E, A]] {
   def id: String
   def version: Long
 
-  def require(version: Long): Update[E, A] =
-    if (this.version == version)
-      Update.accept(this.asInstanceOf[A])
-    else
-      Update.reject(invalidVersionError(version, this.version))
-
-  def require(versionOption: Option[Long]): Update[E, A] = versionOption match {
-    case Some(v) => require(v)
-    case None    => Update.accept(this.asInstanceOf[A])
+  def require(expectedVersionOption: Option[Long], persistentVersion: Long) = {
+    val transientVersion = version
+    expectedVersionOption match {
+      case Some(expectedVersion) if (expectedVersion != persistentVersion) =>
+        Update.reject(wrongVersionError(id, expectedVersion, persistentVersion))
+      case Some(expectedVersion) if ((expectedVersion == persistentVersion) && (persistentVersion < transientVersion)) =>
+        Update.reject(conflictingUpdateError(id, persistentVersion))
+      case Some(expectedVersion) if ((expectedVersion == persistentVersion) && (persistentVersion == transientVersion)) =>
+        Update.accept(this.asInstanceOf[A])
+      case None =>
+        Update.accept(this.asInstanceOf[A])
+    }
   }
 }
 
 object Aggregate {
-  val template = "expected version = %s, actual version = %s"
+  val wrongVersionTemplate = "invoice %s: expected version %s doesn't match current version %s"
+  val conflictingUpdateTemplate = "invoice %s: conflicting update on version %s in progress"
 
-  def invalidVersionError(expected: Long, actual: Long) =
-    DomainError(template format (expected, actual))
+  def wrongVersionError(invoiceId: String, expected: Long, current: Long) =
+    DomainError(wrongVersionTemplate format (invoiceId, expected, current))
+
+  def conflictingUpdateError(invoiceId: String, current: Long) =
+    DomainError(conflictingUpdateTemplate format (invoiceId, current))
 }
