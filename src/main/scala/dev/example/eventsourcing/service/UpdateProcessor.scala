@@ -7,36 +7,37 @@ import akka.stm._
 
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.log.EventLog
-import dev.example.eventsourcing.service.InvoiceService._
 
-class InvoiceUpdateProcessor(
-    invoicesRef: Ref[Map[String, Invoice]],
-    updatesRef: Ref[Queue[TransientUpdate]],
-    eventLog: EventLog[InvoiceEvent]) extends Actor {
+import DomainService.TransientUpdate
 
-  import InvoiceUpdateProcessor._
+class UpdateProcessor[E <: Event, A <: Aggregate[E, A]](
+    domainObjectsRef: Ref[Map[String, A]],
+    domainUpdatesRef: Ref[Queue[TransientUpdate[E, A]]],
+    eventLog: EventLog[E]) extends Actor {
+
+  import UpdateProcessor._
 
   protected def receive = {
     case Run() => {
-      // dequeue updated transient invoices
+      // dequeue updated transient domain objects
       val transientUpdate = atomic {
-        val (u, q) = updatesRef().dequeue
-        updatesRef set q
+        val (u, q) = domainUpdatesRef().dequeue
+        domainUpdatesRef set q
         u
       }
 
       // persist events // TODO: failure recovery
       transientUpdate.events.reverse.foreach(eventLog.append(_))
 
-      // update persisted invoices
-      invoicesRef set transientUpdate.invoices
+      // update domain objects reference
+      domainObjectsRef set transientUpdate.domainObjects
 
       self.reply(UpdateSuccess())
     }
   }
 }
 
-object InvoiceUpdateProcessor {
+object UpdateProcessor {
   case class Run()
   case class UpdateSuccess()
   case class UpdateFailure()

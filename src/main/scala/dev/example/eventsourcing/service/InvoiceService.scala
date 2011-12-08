@@ -2,7 +2,6 @@ package dev.example.eventsourcing.service
 
 import scala.collection.immutable.Queue
 
-import akka.actor._
 import akka.dispatch._
 import akka.stm._
 
@@ -12,13 +11,16 @@ import Scalaz._
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.log.EventLog
 
-class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty) {
-  import InvoiceService._
+class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty)
+  extends DomainService[InvoiceEvent, Invoice](eventLog) {
 
-  val invoicesRef = Ref(initialState)
-  val updatesRef = Ref(Queue.empty[TransientUpdate])
+  import DomainService._
 
-  val updateProcessor = Actor.actorOf(new InvoiceUpdateProcessor(invoicesRef, updatesRef, eventLog)).start
+  val domainObjectsRef = Ref(initialState)
+  val domainUpdatesRef = Ref(Queue.empty[TransientUpdate[InvoiceEvent, Invoice]])
+
+  def invoicesRef = domainObjectsRef
+  val updatesRef = domainUpdatesRef
 
   //
   // Consistent reads
@@ -60,36 +62,9 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
 
   def sendInvoiceTo(invoiceId: String, version: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
     updateInvoice(invoiceId, version) { invoice => invoice.sendTo(to) }
-
-  //
-  // Internals
-  //
-
-  private def transactedUpdate(invoiceId: String)(f: (Option[Invoice], Option[Invoice]) => Update[InvoiceEvent, Invoice]) = atomic {
-    val persistedInvoices = invoicesRef()
-    val transientInvoices = updatesRef().lastOption.map(_.invoices).getOrElse(persistedInvoices)
-
-    val future = new DefaultCompletableFuture[DomainValidation[Invoice]]
-
-    f(persistedInvoices.get(invoiceId), transientInvoices.get(invoiceId))() match {
-      case (events, Failure(errors))  => future.completeWithResult(Failure(errors))
-      case (events, Success(updated)) => {
-        updatesRef alter { queue => queue.enqueue(TransientUpdate(transientInvoices + (invoiceId -> updated), events)) }
-        deferred {
-          updateProcessor ? InvoiceUpdateProcessor.Run() onResult {
-            case InvoiceUpdateProcessor.UpdateSuccess() => future.completeWithResult(Success(updated))
-            case InvoiceUpdateProcessor.UpdateFailure() => () // TODO: report update/persistence error
-          }
-        }
-      }
-    }
-    future
-  }
 }
 
 object InvoiceService {
-  case class TransientUpdate(invoices: Map[String, Invoice], events: List[InvoiceEvent])
-
   def apply(eventLog: EventLog[InvoiceEvent]): InvoiceService =
     new InvoiceService(eventLog)
 

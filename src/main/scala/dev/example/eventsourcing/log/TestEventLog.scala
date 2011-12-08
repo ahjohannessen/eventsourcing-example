@@ -11,7 +11,6 @@ class TestEventLog[E <: Event] extends EventLog[E] with Iterable[E] {
 
   def append(event: E) = storedEvents.add(event)
   def iterator = storedEvents.asScala.toList.iterator
-
 }
 
 object TestEventLog {
