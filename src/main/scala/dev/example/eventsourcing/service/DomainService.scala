@@ -16,20 +16,20 @@ abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLo
   import DomainService._
 
   def domainObjectsRef: Ref[Map[String, A]]
-  def domainUpdatesRef: Ref[Queue[TransientUpdate[E, A]]]
+  def domainUpdatesRef: Ref[List[TransientUpdate[E, A]]]
 
   lazy val updateProcessor = Actor.actorOf(new UpdateProcessor(domainObjectsRef, domainUpdatesRef, eventLog)).start
 
   def transactedUpdate(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
     val persistedDomainObjects = domainObjectsRef()
-    val transientDomainObjects = domainUpdatesRef().lastOption.map(_.domainObjects).getOrElse(persistedDomainObjects)
+    val transientDomainObjects = domainUpdatesRef().headOption.map(_.domainObjects).getOrElse(persistedDomainObjects)
 
     val future = new DefaultCompletableFuture[DomainValidation[A]]
 
     f(persistedDomainObjects.get(objectId), transientDomainObjects.get(objectId))() match {
       case (events, Failure(errors))  => future.completeWithResult(Failure(errors))
       case (events, Success(updated)) => {
-        domainUpdatesRef alter { queue => queue.enqueue(TransientUpdate(transientDomainObjects + (objectId -> updated), events)) }
+        domainUpdatesRef alter { list => TransientUpdate(transientDomainObjects + (objectId -> updated), events) :: list }
         deferred {
           updateProcessor ? UpdateProcessor.Run() onResult {
             case UpdateProcessor.UpdateSuccess() => future.completeWithResult(Success(updated))

@@ -1,7 +1,5 @@
 package dev.example.eventsourcing.service
 
-import scala.collection.immutable.Queue
-
 import akka.dispatch._
 import akka.stm._
 
@@ -17,7 +15,7 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
   import DomainService._
 
   val domainObjectsRef = Ref(initialState)
-  val domainUpdatesRef = Ref(Queue.empty[TransientUpdate[InvoiceEvent, Invoice]])
+  val domainUpdatesRef = Ref(List.empty[TransientUpdate[InvoiceEvent, Invoice]])
 
   def invoicesRef = domainObjectsRef
   val updatesRef = domainUpdatesRef
