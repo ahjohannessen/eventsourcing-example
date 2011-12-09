@@ -58,7 +58,6 @@ object InvoiceService {
   def apply(log: EventLog[InvoiceEvent], invoices: Map[String, Invoice] = Map.empty) = new InvoiceService {
     val domainObjectsRef = Ref(invoices)
     val eventLog = log
-    val eventBus = null // TODO
   }
 
   def handle(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>

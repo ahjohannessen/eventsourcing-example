@@ -16,12 +16,10 @@ trait Transacted[E <: Event, A] {
     Ref(Queue.empty[TransientUpdate[E, A]])
 
   private lazy val updateProcessor =
-    Actor.actorOf(new TransientUpdateProcessor[E, A](domainObjectsRef, transientUpdatesRef, eventLog, eventBus)).start
+    Actor.actorOf(new TransientUpdateProcessor[E, A](domainObjectsRef, transientUpdatesRef, eventLog)).start
 
   def domainObjectsRef: Ref[Map[String, A]]
-
   def eventLog: EventLog[E]
-  def eventBus: EventBus
 
   def update(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
     val persistedDomainObjects = domainObjectsRef()
@@ -50,8 +48,7 @@ private[service] case class TransientUpdate[E, A](domainObjects: Map[String, A],
 private[service] class TransientUpdateProcessor[E <: Event, A](
   persistedObjectsRef: Ref[Map[String, A]],
   transientUpdatesRef: Ref[Queue[TransientUpdate[E, A]]],
-  eventLog: EventLog[E],
-  eventBus: EventBus) extends Actor {
+  eventLog: EventLog[E]) extends Actor {
 
   import TransientUpdateProcessor._
 
@@ -63,8 +60,6 @@ private[service] class TransientUpdateProcessor[E <: Event, A](
       transientUpdates foreach { transientUpdate =>
         transientUpdate.events.reverse.foreach(eventLog.append(_))
       }
-
-      // TODO: publish logged events on event bus
 
       if (transientUpdatesCount > 0) atomic {
         transientUpdatesRef alter { queue => queue.drop(transientUpdatesCount) }
