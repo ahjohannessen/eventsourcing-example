@@ -2,22 +2,17 @@ package dev.example.eventsourcing.service
 
 import akka.dispatch._
 
-import scalaz._
-
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 
-class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty)
-  extends DomainService[InvoiceEvent, Invoice](eventLog, initialState) {
-
-  def invoicesRef = domainObjectsRef
+trait InvoiceService extends Transacted[InvoiceEvent, Invoice] {
 
   //
   // Consistent reads
   //
 
-  def getInvoice(invoiceId: String): Option[Invoice] = invoicesRef().get(invoiceId)
-  def getInvoices: Iterable[Invoice] = invoicesRef().values
+  def getInvoice(invoiceId: String): Option[Invoice] = domainObjectsRef().get(invoiceId)
+  def getInvoices: Iterable[Invoice] = domainObjectsRef().values
   
   //
   // Updates
@@ -55,14 +50,16 @@ class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String,
 }
 
 object InvoiceService {
-  def apply(eventLog: EventLog[InvoiceEvent]): InvoiceService =
-    new InvoiceService(eventLog)
+  import akka.stm._
 
   def apply(eventLog: EventLog[InvoiceEvent], history: List[InvoiceEvent]): InvoiceService =
-    new InvoiceService(eventLog, handle(history))
+    InvoiceService(eventLog, handle(history))
 
-  def apply(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice]): InvoiceService =
-    new InvoiceService(eventLog, initialState)
+  def apply(log: EventLog[InvoiceEvent], invoices: Map[String, Invoice] = Map.empty) = new InvoiceService {
+    val domainObjectsRef = Ref(invoices)
+    val eventLog = log
+    val eventBus = null // TODO
+  }
 
   def handle(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
     e match {

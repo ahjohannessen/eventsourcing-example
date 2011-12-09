@@ -17,7 +17,9 @@ object DefaultEventLog extends EventLog[Event] {
 
   val currentLog = createLog()
 
-  def append(event: Event) = addAsync(event.toString.getBytes()) { entryId => println(entryId) }
+  // TODO: use proper serialization format
+  // TODO: make sync/async logging configurable
+  def append(event: Event) = addSync(event.toString.getBytes())
 
   def addSync(event: Array[Byte]): Long = {
     val exchanger = new Exchanger[Long]()
