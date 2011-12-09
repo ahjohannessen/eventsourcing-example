@@ -39,4 +39,4 @@ abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLo
   }
 }
 
-private[service] case class DomainUpdate[E, +A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])
+private[service] case class DomainUpdate[E, A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])
