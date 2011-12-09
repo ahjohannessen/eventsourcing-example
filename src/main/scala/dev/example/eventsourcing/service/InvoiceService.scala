@@ -5,7 +5,7 @@ import akka.dispatch._
 import scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.EventLog
+import dev.example.eventsourcing.event._
 
 class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty)
   extends DomainService[InvoiceEvent, Invoice](eventLog, initialState) {

@@ -8,7 +8,7 @@ import org.scalatest.matchers.MustMatchers
 import scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.TestEventLog
+import dev.example.eventsourcing.event._
 
 class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
   val eventLog = TestEventLog[Event]()

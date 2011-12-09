@@ -9,7 +9,7 @@ import akka.stm._
 import scalaz._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.EventLog
+import dev.example.eventsourcing.event._
 
 abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLog[E], initialState: Map[String, A]) {
   protected val domainObjectsRef = Ref(initialState)
@@ -39,4 +39,4 @@ abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLo
   }
 }
 
-private[service] case class DomainUpdate[+E, +A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])
+private[service] case class DomainUpdate[E, +A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])

@@ -1,8 +1,6 @@
-package dev.example.eventsourcing.log
+package dev.example.eventsourcing.event
 
 import java.util.concurrent.CopyOnWriteArrayList
-
-import dev.example.eventsourcing.domain.Event
 
 class TestEventLog[E <: Event] extends EventLog[E] with Iterable[E] {
   val storedEvents = new CopyOnWriteArrayList[E]()

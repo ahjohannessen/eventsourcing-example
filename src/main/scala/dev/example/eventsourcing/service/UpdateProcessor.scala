@@ -6,7 +6,7 @@ import akka.actor._
 import akka.stm._
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.log.EventLog
+import dev.example.eventsourcing.event._
 
 class UpdateProcessor[E <: Event, A <: Aggregate[E, A]](
   domainObjectsRef: Ref[Map[String, A]],
