@@ -19,7 +19,7 @@ trait InvoiceService extends Transacted[InvoiceEvent, Invoice] {
   //
 
   def createInvoice(invoiceId: String): Future[DomainValidation[Invoice]] =
-    transactedUpdate(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
+    update(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
       (persistentInvoiceOption, transientInvoiceOption) match {
         case (Some(p), _      ) => Update.reject(DomainError("invoice %s: already exists" format invoiceId))
         case (None   , Some(t)) => Update.reject(DomainError("invoice %s: concurrent creation in progress" format invoiceId))
@@ -28,7 +28,7 @@ trait InvoiceService extends Transacted[InvoiceEvent, Invoice] {
     }
 
   def updateInvoice(invoiceId: String, expectedVersionOption: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]): Future[DomainValidation[Invoice]] =
-    transactedUpdate(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
+    update(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
       (persistentInvoiceOption, transientInvoiceOption) match {
         case (None   , _      ) => Update.reject(DomainError("invoice %s: does not exist" format invoiceId))
         case (Some(p), None   ) => Update.reject(DomainError("invoice %s: concurrent deletion in progress" format invoiceId))

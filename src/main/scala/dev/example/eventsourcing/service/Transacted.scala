@@ -23,7 +23,7 @@ trait Transacted[E <: Event, A] {
   def eventLog: EventLog[E]
   def eventBus: EventBus
 
-  def transactedUpdate(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
+  def update(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
     val persistedDomainObjects = domainObjectsRef()
     val transientDomainObjects = transientUpdatesRef().lastOption.map(_.domainObjects).getOrElse(persistedDomainObjects)
 
