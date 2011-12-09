@@ -1,24 +1,16 @@
 package dev.example.eventsourcing.service
 
 import akka.dispatch._
-import akka.stm._
 
 import scalaz._
-import Scalaz._
 
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.log.EventLog
 
 class InvoiceService(eventLog: EventLog[InvoiceEvent], initialState: Map[String, Invoice] = Map.empty)
-  extends DomainService[InvoiceEvent, Invoice](eventLog) {
-
-  import DomainService._
-
-  val domainObjectsRef = Ref(initialState)
-  val domainUpdatesRef = Ref(List.empty[TransientUpdate[InvoiceEvent, Invoice]])
+  extends DomainService[InvoiceEvent, Invoice](eventLog, initialState) {
 
   def invoicesRef = domainObjectsRef
-  val updatesRef = domainUpdatesRef
 
   //
   // Consistent reads

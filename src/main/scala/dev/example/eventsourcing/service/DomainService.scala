@@ -7,29 +7,26 @@ import akka.dispatch._
 import akka.stm._
 
 import scalaz._
-import Scalaz._
 
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.log.EventLog
 
-abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLog[E]) {
-  import DomainService._
+abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLog[E], initialState: Map[String, A]) {
+  protected val domainObjectsRef = Ref(initialState)
+  protected val domainUpdatesRef = Ref(Queue.empty[DomainUpdate[E, A]])
 
-  def domainObjectsRef: Ref[Map[String, A]]
-  def domainUpdatesRef: Ref[List[TransientUpdate[E, A]]]
+  private val updateProcessor = Actor.actorOf(new UpdateProcessor(domainObjectsRef, domainUpdatesRef, eventLog)).start
 
-  lazy val updateProcessor = Actor.actorOf(new UpdateProcessor(domainObjectsRef, domainUpdatesRef, eventLog)).start
-
-  def transactedUpdate(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
+  protected def transactedUpdate(objectId: String)(f: (Option[A], Option[A]) => Update[E, A]) = atomic {
     val persistedDomainObjects = domainObjectsRef()
-    val transientDomainObjects = domainUpdatesRef().headOption.map(_.domainObjects).getOrElse(persistedDomainObjects)
+    val transientDomainObjects = domainUpdatesRef().lastOption.map(_.domainObjects).getOrElse(persistedDomainObjects)
 
     val future = new DefaultCompletableFuture[DomainValidation[A]]
 
     f(persistedDomainObjects.get(objectId), transientDomainObjects.get(objectId))() match {
       case (events, Failure(errors))  => future.completeWithResult(Failure(errors))
       case (events, Success(updated)) => {
-        domainUpdatesRef alter { list => TransientUpdate(transientDomainObjects + (objectId -> updated), events) :: list }
+        domainUpdatesRef alter { queue => queue enqueue DomainUpdate(transientDomainObjects + (objectId -> updated), events) }
         deferred {
           updateProcessor ? UpdateProcessor.Run() onResult {
             case UpdateProcessor.UpdateSuccess() => future.completeWithResult(Success(updated))
@@ -42,6 +39,4 @@ abstract class DomainService[E <: Event, A <: Aggregate[E, A]](eventLog: EventLo
   }
 }
 
-object DomainService {
-  case class TransientUpdate[+E, +A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])
-}
+private[service] case class DomainUpdate[+E, +A <: Aggregate[E, A]](domainObjects: Map[String, A], events: List[E])

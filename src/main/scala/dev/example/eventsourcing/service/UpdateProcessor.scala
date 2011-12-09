@@ -1,17 +1,17 @@
 package dev.example.eventsourcing.service
 
+import scala.collection.immutable.Queue
+
 import akka.actor._
 import akka.stm._
 
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.log.EventLog
 
-import DomainService.TransientUpdate
-
 class UpdateProcessor[E <: Event, A <: Aggregate[E, A]](
-    domainObjectsRef: Ref[Map[String, A]],
-    domainUpdatesRef: Ref[List[TransientUpdate[E, A]]],
-    eventLog: EventLog[E]) extends Actor {
+  domainObjectsRef: Ref[Map[String, A]],
+  domainUpdatesRef: Ref[Queue[DomainUpdate[E, A]]],
+  eventLog: EventLog[E]) extends Actor {
 
   import UpdateProcessor._
 
@@ -20,13 +20,13 @@ class UpdateProcessor[E <: Event, A <: Aggregate[E, A]](
       val transientUpdates = domainUpdatesRef()
       val transientUpdatesCount = transientUpdates.length
 
-      transientUpdates.reverse foreach { transientUpdate =>
+      transientUpdates foreach { transientUpdate =>
         transientUpdate.events.reverse.foreach(eventLog.append(_))
       }
 
       if (transientUpdatesCount > 0) atomic {
-        domainUpdatesRef alter (list => list.reverse.drop(transientUpdatesCount).reverse)
-        domainObjectsRef update transientUpdates.head.domainObjects // apply last update
+        domainUpdatesRef alter { queue => queue.drop(transientUpdatesCount) }
+        domainObjectsRef update transientUpdates.last.domainObjects // apply last update
       }
 
       self.reply(UpdateSuccess())
