@@ -1,12 +1,11 @@
 package dev.example.eventsourcing.event
 
-import java.util.concurrent.Exchanger
-
 import com.twitter.zookeeper.ZooKeeperClient
 
 import org.apache.bookkeeper.client.AsyncCallback.AddCallback
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client.{LedgerHandle, BookKeeper}
+import java.util.concurrent.Exchanger
 
 object DefaultEventLog extends EventLog[Event] {
   private val secret = "secret".getBytes
@@ -17,27 +16,20 @@ object DefaultEventLog extends EventLog[Event] {
 
   val currentLog = createLog()
 
-  // TODO: use proper serialization format
-  // TODO: make sync/async logging configurable
-  def append(event: Event) = addSync(event.toString.getBytes())
-
-  def addSync(event: Array[Byte]): Long = {
+  def append(event: Event): Long = {
     val exchanger = new Exchanger[Long]()
-    addAsync(event) { entryId =>
-      exchanger.exchange(entryId)
-    }
+    appendAsync(event: Event) { entryId => exchanger.exchange(entryId) }
     exchanger.exchange(0)
   }
 
-  def addAsync(event: Array[Byte])(f: Long => Unit) {
-    currentLog.asyncAddEntry(event, new AddCallback {
+  // TODO: use proper event format for logging
+  def appendAsync(event: Event)(f: Long => Unit) {
+    currentLog.asyncAddEntry(event.toString.getBytes, new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
         f(entryId)
       }
     }, null)
   }
-
-
 
   private def createLog() =
     bookkeeper.createLedger(digest, secret)

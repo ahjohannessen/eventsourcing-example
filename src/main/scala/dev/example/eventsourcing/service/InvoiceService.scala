@@ -4,40 +4,39 @@ import akka.dispatch._
 
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
+import dev.example.eventsourcing.state._
 
-trait InvoiceService extends Transacted[InvoiceEvent, Invoice] {
+trait InvoiceService extends Stateful[Map[String, Invoice], InvoiceEvent, Invoice] {
+  def invoices = stateRef()
 
   //
   // Consistent reads
   //
 
-  def getInvoice(invoiceId: String): Option[Invoice] = domainObjectsRef().get(invoiceId)
-  def getInvoices: Iterable[Invoice] = domainObjectsRef().values
+  def getInvoice(invoiceId: String): Option[Invoice] = invoices.get(invoiceId)
+  def getInvoices: Iterable[Invoice] = invoices.values
   
   //
   // Updates
   //
 
-  def createInvoice(invoiceId: String): Future[DomainValidation[Invoice]] =
-    update(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
-      (persistentInvoiceOption, transientInvoiceOption) match {
-        case (Some(p), _      ) => Update.reject(DomainError("invoice %s: already exists" format invoiceId))
-        case (None   , Some(t)) => Update.reject(DomainError("invoice %s: concurrent creation in progress" format invoiceId))
-        case (None   , None   ) => Invoice.create(invoiceId)
-      }
-    }
+  private val transition = (currentState: Map[String, Invoice], updated: Invoice) => currentState + (updated.id -> updated)
 
-  def updateInvoice(invoiceId: String, expectedVersionOption: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]): Future[DomainValidation[Invoice]] =
-    update(invoiceId) { (persistentInvoiceOption, transientInvoiceOption) =>
-      (persistentInvoiceOption, transientInvoiceOption) match {
-        case (None   , _      ) => Update.reject(DomainError("invoice %s: does not exist" format invoiceId))
-        case (Some(p), None   ) => Update.reject(DomainError("invoice %s: concurrent deletion in progress" format invoiceId))
-        case (Some(p), Some(t)) => for {
-          current <- t.require(expectedVersionOption, p.version)
-          updated <- f(t)
+  def createInvoice(invoiceId: String) = transacted(currentState =>
+    currentState.get(invoiceId) match {
+      case Some(invoice) => Update.reject(DomainError("invoice %s: already exists" format invoiceId))
+      case None          => Invoice.create(invoiceId)
+    }, transition)
+
+
+  def updateInvoice(invoiceId: String, expectedVersion: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]) = transacted(currentState =>
+    currentState.get(invoiceId) match {
+      case None          => Update.reject(DomainError("invoice %s: does not exist" format invoiceId))
+      case Some(invoice) => for {
+          current <- invoice.require(expectedVersion)
+          updated <- f(invoice)
         } yield updated
-      }
-    }
+    }, transition)
 
   def addInvoiceItem(invoiceId: String, version: Option[Long], invoiceItem: InvoiceItem): Future[DomainValidation[Invoice]] =
     updateInvoice(invoiceId, version) { invoice => invoice.addItem(invoiceItem) }
@@ -55,8 +54,8 @@ object InvoiceService {
   def apply(eventLog: EventLog[InvoiceEvent], history: List[InvoiceEvent]): InvoiceService =
     InvoiceService(eventLog, handle(history))
 
-  def apply(log: EventLog[InvoiceEvent], invoices: Map[String, Invoice] = Map.empty) = new InvoiceService {
-    val domainObjectsRef = Ref(invoices)
+  def apply(log: EventLog[InvoiceEvent], initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
+    val stateRef = Ref(initial)
     val eventLog = log
   }
 
