@@ -11,7 +11,7 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 
 class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val eventLog = TestEventLog[Event]()
+  val eventLog = TestEventLog[InvoiceEvent]()
   val service = InvoiceService(eventLog)
 
   override def afterAll = Actor.registry.shutdownAll()
@@ -67,6 +67,12 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
       }
       "not have the event log updated" in {
         eventLog.toList.length must be(3)
+      }
+    }
+    "created with an event stream" must {
+      "have an initial state derived from that event stream" in {
+        val recovered = InvoiceService(eventLog, eventLog.toIterator)
+        recovered.invoices must be(Map("test" -> Invoice("test", 2, List(InvoiceItem("b", 0, 0), InvoiceItem("a", 0, 0)))))
       }
     }
   }

@@ -51,18 +51,21 @@ trait InvoiceService extends Stateful[Map[String, Invoice], InvoiceEvent, Invoic
 object InvoiceService {
   import akka.stm._
 
-  def apply(eventLog: EventLog[InvoiceEvent], history: List[InvoiceEvent]): InvoiceService =
+  def apply(eventLog: EventLog[InvoiceEvent], history: Iterator[InvoiceEvent]): InvoiceService = {
     InvoiceService(eventLog, handle(history))
+  }
 
   def apply(log: EventLog[InvoiceEvent], initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
     val stateRef = Ref(initial)
     val eventLog = log
   }
 
-  def handle(events: List[InvoiceEvent]) = events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
-    e match {
-      case InvoiceCreated(invoiceId) => m + (invoiceId -> Invoice.handle(e))
-      case event                     => m + (event.invoiceId -> m(event.invoiceId).handle(e))
+  def handle(events: Iterator[InvoiceEvent]) = {
+    events.foldLeft(Map.empty[String, Invoice]) { (m, e) =>
+      e match {
+        case InvoiceCreated(invoiceId) => m + (invoiceId -> Invoice.handle(e))
+        case event                     => m + (event.invoiceId -> m(event.invoiceId).handle(e))
+      }
     }
   }
 }
