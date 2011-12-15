@@ -10,19 +10,19 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 
 trait Stateful[S, E <: Event, A] {
-  private lazy val processor = Actor.actorOf(new StateChangeProcessor).start
+  private lazy val processor = Actor.actorOf(new UpdateRequestProcessor).start
 
   def stateRef: Ref[S]
   def eventLog: EventLog[E]
 
   def transacted(update: S => Update[E, A], transition: (S, A) => S): Future[DomainValidation[A]] =
-    (processor ? StateChange(update, transition)).asInstanceOf[Future[DomainValidation[A]]]
+    (processor ? UpdateRequest(update, transition)).asInstanceOf[Future[DomainValidation[A]]]
 
-  case class StateChange(update: S => Update[E, A], transition: (S, A) => S)
+  case class UpdateRequest(update: S => Update[E, A], transition: (S, A) => S)
 
-  class StateChangeProcessor extends Actor {
+  class UpdateRequestProcessor extends Actor {
     def receive = {
-      case StateChange(u, t) => {
+      case UpdateRequest(u, t) => {
         val state = stateRef()
         val delta = u(state)
 
