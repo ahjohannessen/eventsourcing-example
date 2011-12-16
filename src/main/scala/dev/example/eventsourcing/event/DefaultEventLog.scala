@@ -8,7 +8,7 @@ import org.apache.bookkeeper.client.{LedgerHandle, BookKeeper}
 
 import dev.example.eventsourcing.util.Serialization._
 
-object DefaultEventLog extends EventLog[Event] with Iterable[Event] {
+class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
   private val bookkeeper = new BookKeeper("localhost:2181")
 
   private val secret = "secret".getBytes
@@ -44,7 +44,7 @@ object DefaultEventLog extends EventLog[Event] with Iterable[Event] {
   private def createLog() =
     bookkeeper.createLedger(digest, secret)
 
-  def openLog(logId: Long) =
+  private def openLog(logId: Long) =
     bookkeeper.openLedger(logId, digest, secret)
 
   private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[Event] {
