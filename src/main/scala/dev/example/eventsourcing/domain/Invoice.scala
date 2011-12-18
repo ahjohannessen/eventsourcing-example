@@ -7,7 +7,7 @@ case class Invoice(
     version: Long = 0,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None) extends Aggregate[InvoiceEvent, Invoice] with EventSourced[InvoiceEvent, Invoice] {
+    sentTo: Option[InvoiceAddress] = None) extends Aggregate[InvoiceEvent, Invoice] with Handler[InvoiceEvent, Invoice] {
 
   def addItem(item: InvoiceItem): Update[InvoiceEvent, Invoice] =
     update(InvoiceItemAdded(id, item))
@@ -32,7 +32,7 @@ case class Invoice(
   }
 }
 
-object Invoice extends EventSourced[InvoiceEvent, Invoice] {
+object Invoice extends Handler[InvoiceEvent, Invoice] {
   def create(id: String): Update[InvoiceEvent, Invoice] = update(InvoiceCreated(id))
 
   def handle(event: InvoiceEvent) = event match {

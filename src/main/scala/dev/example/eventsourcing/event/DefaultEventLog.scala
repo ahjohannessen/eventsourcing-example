@@ -8,7 +8,7 @@ import org.apache.bookkeeper.client.{LedgerHandle, BookKeeper}
 
 import dev.example.eventsourcing.util.Serialization._
 
-class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
+class DefaultEventLog extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
 
   private val secret = "secret".getBytes
@@ -17,26 +17,19 @@ class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
   val writeLog = createLog()
   val writeLogId = writeLog.getId
 
-  def iterator: Iterator[Event] = iterator(1L, 0L)
-
-  def iteratorOf[E](implicit m: Manifest[E]): Iterator[E] = iteratorOf[E](1L, 0L)
-
-  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[Event] =
+  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
     if (fromLogId < writeLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
 
-  def iteratorOf[E](fromLogId: Long, fromLogEntryId: Long)(implicit m: Manifest[E]): Iterator[E] =
-    iterator(fromLogId, fromLogEntryId).filter(m.erasure.isInstance).map(_.asInstanceOf[E])
-
-  def append(event: Event): Long = {
-    val exchanger = new Exchanger[Long]()
-    appendAsync(event: Event) { entryId => exchanger.exchange(entryId) }
-    exchanger.exchange(0)
+  def append(event: Event): EventLogEntry = {
+    val exchanger = new Exchanger[EventLogEntry]()
+    appendAsync(event: Event) { entry => exchanger.exchange(entry) }
+    exchanger.exchange(null)
   }
 
-  def appendAsync(event: Event)(f: Long => Unit) {
+  def appendAsync(event: Event)(f: EventLogEntry => Unit) {
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        f(entryId)
+        f(EventLogEntry(writeLogId, entryId, event))
       }
     }, null)
   }
@@ -47,7 +40,7 @@ class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
   private def openLog(logId: Long) =
     bookkeeper.openLedger(logId, digest, secret)
 
-  private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[Event] {
+  private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[EventLogEntry] {
     var currentIterator = iteratorFor(fromLogId, fromLogEntryId)
     var currentLogId = fromLogId
 
@@ -59,9 +52,9 @@ class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
           new EmptyIterator
         } else {
           import scala.collection.JavaConverters._
-          log.readEntries(fromLogEntryId, log.getLastAddConfirmed).asScala.toList
-            .map(entry => entry.getEntry)
-            .map(entry => deserialize(entry).asInstanceOf[Event]).toIterator
+          log.readEntries(fromLogEntryId, log.getLastAddConfirmed).asScala.toList.map { entry =>
+            EventLogEntry(entry.getLedgerId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])
+          }.toIterator
         }
       } catch {
         case e => new EmptyIterator // TODO: log error
@@ -83,7 +76,7 @@ class DefaultEventLog extends EventLog[Event] with Iterable[Event] {
     def next() = if (hasNext) currentIterator.next() else throw new NoSuchElementException
   }
 
-  private class EmptyIterator extends Iterator[Event] {
+  private class EmptyIterator extends Iterator[EventLogEntry] {
     def hasNext = false
     def next() = throw new NoSuchElementException
   }

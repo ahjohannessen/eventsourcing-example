@@ -11,7 +11,7 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 
 class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val eventLog = TestEventLog[InvoiceEvent]()
+  val eventLog = TestEventLog()
   val service = InvoiceService(eventLog)
 
   override def afterAll = Actor.registry.shutdownAll()
@@ -22,7 +22,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
         service.createInvoice("test").get must be(Success(Invoice("test", version = 0)))
       }
       "have the creation event logged" in {
-        eventLog.toList.last must be(InvoiceCreated("test"))
+        eventLog.toList.last.event must be(InvoiceCreated("test"))
         eventLog.toList.length must be(1)
       }
     }
@@ -37,7 +37,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Success(Invoice(id = "test", version = 1, items = List(InvoiceItem("a", 0, 0)))))
       }
       "have the update event logged" in {
-        eventLog.toList.last must be(InvoiceItemAdded("test", InvoiceItem("a", 0, 0)))
+        eventLog.toList.last.event must be(InvoiceItemAdded("test", InvoiceItem("a", 0, 0)))
         eventLog.toList.length must be(2)
       }
     }
@@ -56,7 +56,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
           be(Success(Invoice(id = "test", version = 2, items = List(InvoiceItem("b", 0, 0), InvoiceItem("a", 0, 0)))))
       }
       "have the update event logged" in {
-        eventLog.toList.last must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))
+        eventLog.toList.last.event must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))
         eventLog.toList.length must be(3)
       }
     }
@@ -67,12 +67,6 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
       }
       "not have the event log updated" in {
         eventLog.toList.length must be(3)
-      }
-    }
-    "created with an event stream" must {
-      "have an initial state derived from that event stream" in {
-        val recovered = InvoiceService(eventLog, eventLog.toIterator)
-        recovered.invoices must be(Map("test" -> Invoice("test", 2, List(InvoiceItem("b", 0, 0), InvoiceItem("a", 0, 0)))))
       }
     }
   }

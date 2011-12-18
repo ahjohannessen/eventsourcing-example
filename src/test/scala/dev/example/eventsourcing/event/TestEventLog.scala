@@ -2,23 +2,26 @@ package dev.example.eventsourcing.event
 
 import java.util.concurrent.CopyOnWriteArrayList
 
-class TestEventLog[E <: Event] extends EventLog[E] with Iterable[E] {
+class TestEventLog extends EventLog {
   import scala.collection.JavaConverters._
 
-  val storedEvents = new CopyOnWriteArrayList[E]()
+  val eventLogId = 1L
+  val storedEvents = new CopyOnWriteArrayList[EventLogEntry]()
 
-  def iterator = storedEvents.asScala.toList.iterator
+  def iterator(fromLogId: Long, fromLogEntryId: Long) =
+    storedEvents.asScala.drop(fromLogEntryId.toInt).iterator
 
-  def append(event: E): Long = {
-    storedEvents.add(event)
-    storedEvents.size
+  def append(event: Event): EventLogEntry = {
+    val entry = EventLogEntry(1L, storedEvents.size, event)
+    storedEvents.add(entry)
+    entry
   }
 
-  def appendAsync(event: E)(f: Long => Unit) {
+  def appendAsync(event: Event)(f: EventLogEntry => Unit) {
     f(append(event))
   }
 }
 
 object TestEventLog {
-  def apply[E <: Event]() = new TestEventLog[E]
+  def apply() = new TestEventLog
 }

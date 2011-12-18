@@ -6,29 +6,29 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state._
 
-trait InvoiceService extends Stateful[Map[String, Invoice], InvoiceEvent, Invoice] with EventSourced[InvoiceEvent, Unit] {
-  def invoices = stateRef()
+trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
+  val projectionLogic = (state: Map[String, Invoice], updated: Invoice) => state + (updated.id -> updated)
 
   //
   // Consistent reads
   //
 
-  def getInvoice(invoiceId: String): Option[Invoice] = invoices.get(invoiceId)
-  def getInvoices: Iterable[Invoice] = invoices.values
+  def getInvoice(invoiceId: String): Option[Invoice] = currentState.get(invoiceId)
+  def getInvoices: Iterable[Invoice] = currentState.values
   
   //
   // Updates
   //
 
-  def createInvoice(invoiceId: String) = transacted { currentState =>
-    currentState.get(invoiceId) match {
+  def createInvoice(invoiceId: String) = transacted { state =>
+    state.get(invoiceId) match {
       case Some(invoice) => Update.reject(DomainError("invoice %s: already exists" format invoiceId))
       case None          => Invoice.create(invoiceId)
     }
   }
 
-  def updateInvoice(invoiceId: String, expectedVersion: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]) = transacted { currentState =>
-    currentState.get(invoiceId) match {
+  def updateInvoice(invoiceId: String, expectedVersion: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]) = transacted { state =>
+    state.get(invoiceId) match {
       case None          => Update.reject(DomainError("invoice %s: does not exist" format invoiceId))
       case Some(invoice) => for {
         current <- invoice.require(expectedVersion)
@@ -45,36 +45,11 @@ trait InvoiceService extends Stateful[Map[String, Invoice], InvoiceEvent, Invoic
 
   def sendInvoiceTo(invoiceId: String, version: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
     updateInvoice(invoiceId, version) { invoice => invoice.sendTo(to) }
-
-  //
-  // ...
-  //
-
-  def handle(history: Iterator[InvoiceEvent]) {
-    history.foreach(handle)
-  }
-
-  def handle(event: InvoiceEvent) = event match {
-    case InvoiceCreated(invoiceId)    => apply(Invoice.handle(event))
-    case invoiceUpdated: InvoiceEvent => apply(invoices(event.invoiceId).handle(event))
-  }
-
-  def apply(updated: Invoice) = stateRef alter {
-    current => current + (updated.id -> updated)
-  }
 }
 
 object InvoiceService {
-  import akka.stm._
-
-  def apply(log: EventLog[InvoiceEvent], initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
-    val stateRef = Ref(initial)
+  def apply(log: EventLog, initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
     val eventLog = log
-  }
-
-  def apply(eventLog: EventLog[InvoiceEvent], history: Iterator[InvoiceEvent]): InvoiceService = {
-    val service = InvoiceService(eventLog)
-    service.handle(history)
-    service
+    val initialState = initial
   }
 }
