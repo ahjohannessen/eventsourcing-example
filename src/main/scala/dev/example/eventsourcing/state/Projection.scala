@@ -42,7 +42,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
   private case class ApplyUpdate(update: S => Update[Event, A], promise: CompletableFuture[DomainValidation[A]])
 
   private class Updater extends Actor {
-    self.dispatcher = Dispatchers.newThreadBasedDispatcher(self)
+    if (writeAhead) self.dispatcher = Dispatchers.newThreadBasedDispatcher(self)
 
     def receive = {
       case ApplyUpdate(u, p) => {
