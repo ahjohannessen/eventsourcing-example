@@ -22,6 +22,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
   private lazy val updater = Actor.actorOf(new Updater).start
 
   def eventLog: EventLog
+  def writeAhead: Boolean = true
 
   def currentState: S = ref()
 
@@ -61,7 +62,9 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
       }
     }
 
-    def log(events: List[Event]) = events.foreach(eventLog.append)
+    def log(events: List[Event]) = events.foreach { event =>
+      if (writeAhead) eventLog.append(event) else eventLog.appendAsync(event)(entry => ())
+    }
   }
 }
 
