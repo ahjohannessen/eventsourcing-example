@@ -1,6 +1,6 @@
 package dev.example.eventsourcing.event
 
-import akka.actor.ActorRef
+import java.util.concurrent.Exchanger
 
 trait Event
 
@@ -11,8 +11,13 @@ trait EventLog extends Iterable[EventLogEntry] {
   def iterator: Iterator[EventLogEntry] = iterator(1L, 0L)
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry]
 
-  def append(event: Event): EventLogEntry
   def appendAsync(event: Event)(f: EventLogEntry => Unit)
+
+  def append(event: Event): EventLogEntry = {
+    val exchanger = new Exchanger[EventLogEntry]()
+    appendAsync(event: Event) { entry => exchanger.exchange(entry) }
+    exchanger.exchange(null)
+  }
 }
 
 trait EventBus {
@@ -25,11 +30,11 @@ trait EventLoggedNotification extends EventLog {
   def eventLogId: Long
   def eventBus: EventBus
 
-  abstract override def append(event: Event) = {
-    val eventLogEntry = super.append(event)
-    val eventLogged = EventLogged(eventLogEntry)
-    eventBus.publish(eventLogged, "log")
-    eventLogEntry
+  abstract override def appendAsync(event: Event)(f: EventLogEntry => Unit) {
+    super.appendAsync(event) { entry =>
+      f(entry)
+      eventBus.publish(EventLogged(entry), "log")
+    }
   }
 }
 

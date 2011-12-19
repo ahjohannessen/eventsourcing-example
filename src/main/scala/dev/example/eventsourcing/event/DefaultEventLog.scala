@@ -1,12 +1,11 @@
 package dev.example.eventsourcing.event
 
-import java.util.concurrent.Exchanger
+import akka.dispatch._
 
 import org.apache.bookkeeper.client.AsyncCallback.AddCallback
 import org.apache.bookkeeper.client.BookKeeper.DigestType
-import org.apache.bookkeeper.client.{LedgerHandle, BookKeeper}
-
 import dev.example.eventsourcing.util.Serialization._
+import org.apache.bookkeeper.client.{BKException, LedgerHandle, BookKeeper}
 
 class DefaultEventLog extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
@@ -22,18 +21,15 @@ class DefaultEventLog extends EventLog {
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] = //new EmptyIterator
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
 
-  def append(event: Event): EventLogEntry = {
-    val exchanger = new Exchanger[EventLogEntry]()
-    appendAsync(event: Event) { entry => exchanger.exchange(entry) }
-    exchanger.exchange(null)
-  }
-
-  def appendAsync(event: Event)(f: EventLogEntry => Unit) {
+  def appendAsync(event: Event)(f: EventLogEntry => Unit) = {
+    val promise = new DefaultCompletableFuture[EventLogEntry]()
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        f(EventLogEntry(writeLogId, entryId, event))
+        if (rc == 0) f(EventLogEntry(writeLogId, entryId, event))
+        else         { /* TODO: handle error */ }
       }
     }, null)
+    promise
   }
 
   private def createLog() =
@@ -50,9 +46,8 @@ class DefaultEventLog extends EventLog {
       var log: LedgerHandle = null
       try {
         log = openLog(logId)
-        if (log.getLastAddConfirmed == -1) {
-          new EmptyIterator
-        } else {
+        if (log.getLastAddConfirmed == -1) new EmptyIterator
+        else {
           import scala.collection.JavaConverters._
           log.readEntries(fromLogEntryId, log.getLastAddConfirmed).asScala.toList.map { entry =>
             EventLogEntry(entry.getLedgerId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])

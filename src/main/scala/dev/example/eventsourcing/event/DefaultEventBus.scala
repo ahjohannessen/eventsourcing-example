@@ -3,11 +3,6 @@ package dev.example.eventsourcing.event
 import akka.actor._
 
 class DefaultEventBus extends EventBus {
-
-  //
-  // TODO: use a resequencer for EventLogged events
-  //
-
   private val subscriberRegistry = Actor.actorOf(new SubscriberRegistry).start
 
   def subscribe(subscriber: Subscriber, topic: String) =
