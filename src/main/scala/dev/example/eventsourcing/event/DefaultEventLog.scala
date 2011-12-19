@@ -14,11 +14,13 @@ class DefaultEventLog extends EventLog {
   private val secret = "secret".getBytes
   private val digest = DigestType.MAC
 
+  val readLogId = DefaultEventLog.maxLogId
+
   val writeLog = createLog()
   val writeLogId = writeLog.getId
 
-  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
-    if (fromLogId < writeLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
+  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] = //new EmptyIterator
+    if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
 
   def append(event: Event): EventLogEntry = {
     val exchanger = new Exchanger[EventLogEntry]()
@@ -65,7 +67,7 @@ class DefaultEventLog extends EventLog {
 
     def hasNext: Boolean = {
       if      ( currentIterator.hasNext) true
-      else if (!currentIterator.hasNext && currentLogId == writeLogId - 1) false
+      else if (!currentIterator.hasNext && currentLogId == readLogId) false
       else {
         currentLogId = currentLogId + 1
         currentIterator = iteratorFor(currentLogId, 0L)
@@ -80,4 +82,11 @@ class DefaultEventLog extends EventLog {
     def hasNext = false
     def next() = throw new NoSuchElementException
   }
+}
+
+object DefaultEventLog {
+  private val zookeeper = new com.twitter.zookeeper.ZooKeeperClient("localhost:2181")
+
+  val maxLogId = zookeeper.getChildren("/ledgers").filter(_.startsWith("L")).map(_.substring(1).toLong)
+    .foldLeft(-1L) { (z, a) => if (a > z) a else z }
 }
