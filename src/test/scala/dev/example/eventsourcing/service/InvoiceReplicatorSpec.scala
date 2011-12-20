@@ -29,7 +29,7 @@ class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAft
         replicator.await().state must be(service.currentState)
       }
     }
-    "sourced from an replayed event stream" must {
+    "sourced from a replayed event stream" must {
       "recover service state" in {
         val replicator = new InvoiceReplicator with EventProjectionCounter[Map[String, Invoice]]
         replicator.expect(3)

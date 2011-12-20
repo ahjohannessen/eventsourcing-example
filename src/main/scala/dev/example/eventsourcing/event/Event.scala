@@ -27,7 +27,6 @@ trait EventBus {
 }
 
 trait EventLoggedNotification extends EventLog {
-  def eventLogId: Long
   def eventBus: EventBus
 
   abstract override def appendAsync(event: Event)(f: EventLogEntry => Unit) {

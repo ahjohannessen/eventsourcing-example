@@ -1,7 +1,7 @@
 package dev.example.eventsourcing.service
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.event.Event
+import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state.EventProjection
 
 class InvoiceStatistics extends EventProjection[Map[String, Int]] {
@@ -16,5 +16,14 @@ class InvoiceStatistics extends EventProjection[Map[String, Int]] {
       case e: InvoiceItemAdded => increment(e.invoiceId)
       case e: InvoiceEvent     => state
     }
+  }
+}
+
+object InvoiceStatistics {
+  def replay(eventLog: EventLog): InvoiceStatistics = {
+    val statistics = new InvoiceStatistics
+    statistics.replay(eventLog)
+    statistics.await()
+    statistics
   }
 }
