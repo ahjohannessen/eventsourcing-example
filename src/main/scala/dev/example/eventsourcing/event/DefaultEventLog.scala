@@ -4,8 +4,9 @@ import akka.dispatch._
 
 import org.apache.bookkeeper.client.AsyncCallback.AddCallback
 import org.apache.bookkeeper.client.BookKeeper.DigestType
+import org.apache.bookkeeper.client._
+
 import dev.example.eventsourcing.util.Serialization._
-import org.apache.bookkeeper.client.{BKException, LedgerHandle, BookKeeper}
 
 class DefaultEventLog extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
@@ -18,7 +19,7 @@ class DefaultEventLog extends EventLog {
   val writeLog = createLog()
   val writeLogId = writeLog.getId
 
-  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] = //new EmptyIterator
+  def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
 
   def appendAsync(event: Event)(f: EventLogEntry => Unit) = {
@@ -39,20 +40,21 @@ class DefaultEventLog extends EventLog {
     bookkeeper.openLedger(logId, digest, secret)
 
   private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[EventLogEntry] {
+    import scala.collection.JavaConverters._
+
+    // TODO: do not keep all entries of a ledger in memory
     var currentIterator = iteratorFor(fromLogId, fromLogEntryId)
     var currentLogId = fromLogId
+
+    def toEventLogEntry(entry: LedgerEntry) =
+      EventLogEntry(entry.getLedgerId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])
 
     def iteratorFor(logId: Long, fromLogEntryId: Long) = {
       var log: LedgerHandle = null
       try {
         log = openLog(logId)
         if (log.getLastAddConfirmed == -1) new EmptyIterator
-        else {
-          import scala.collection.JavaConverters._
-          log.readEntries(fromLogEntryId, log.getLastAddConfirmed).asScala.toList.map { entry =>
-            EventLogEntry(entry.getLedgerId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])
-          }.toIterator
-        }
+        else log.readEntries(fromLogEntryId, log.getLastAddConfirmed).asScala.toList.map(toEventLogEntry).toIterator
       } catch {
         case e => new EmptyIterator // TODO: log error
       } finally {
