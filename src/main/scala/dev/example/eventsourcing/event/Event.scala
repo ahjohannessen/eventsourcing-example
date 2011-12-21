@@ -1,8 +1,7 @@
 package dev.example.eventsourcing.event
 
 import akka.actor._
-
-import java.util.concurrent.Exchanger
+import akka.dispatch._
 
 trait Event
 
@@ -13,13 +12,8 @@ trait EventLog extends Iterable[EventLogEntry] {
   def iterator: Iterator[EventLogEntry] = iterator(1L, 0L)
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry]
 
-  def appendAsync(event: Event)(f: EventLogEntry => Unit)
-
-  def append(event: Event): EventLogEntry = {
-    val exchanger = new Exchanger[EventLogEntry]()
-    appendAsync(event: Event) { entry => exchanger.exchange(entry) }
-    exchanger.exchange(null)
-  }
+  def appendAsync(event: Event): Future[EventLogEntry]
+  def append(event: Event): EventLogEntry = appendAsync(event).get
 }
 
 trait EventBus {
@@ -31,8 +25,10 @@ trait EventBus {
 trait EventLogEntryPublication extends EventLog {
   def eventBus: EventBus
 
-  abstract override def appendAsync(event: Event)(f: EventLogEntry => Unit) {
-    super.appendAsync(event) { entry => f(entry); eventBus.publish(entry) }
+  abstract override def appendAsync(event: Event): Future[EventLogEntry] = {
+    val future = super.appendAsync(event)
+    future.onResult { case entry => eventBus.publish(entry) }
+    future
   }
 }
 

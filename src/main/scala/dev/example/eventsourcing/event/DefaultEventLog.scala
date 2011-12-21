@@ -22,12 +22,12 @@ class DefaultEventLog extends EventLog {
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
 
-  def appendAsync(event: Event)(f: EventLogEntry => Unit) = {
+  def appendAsync(event: Event): Future[EventLogEntry] = {
     val promise = new DefaultCompletableFuture[EventLogEntry]()
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        if (rc == 0) f(EventLogEntry(writeLogId, entryId, event))
-        else         { /* TODO: handle error */ }
+        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, event))
+        else         promise.completeWithException(BKException.create(rc))
       }
     }, null)
     promise

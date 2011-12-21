@@ -11,7 +11,7 @@ class EventLogEntryResequencerSpec extends WordSpec with MustMatchers with Befor
   override def afterAll = Actor.registry.shutdownAll()
 
   "A resequencer" must {
-    "resequence EventLogged messages" in {
+    "resequence event log entries" in {
       val target = Actor.actorOf(new EventLogEntryResequencerTarget(10)).start
       val resequencer = Actor.actorOf(new EventLogEntryResequencer(target)).start
 

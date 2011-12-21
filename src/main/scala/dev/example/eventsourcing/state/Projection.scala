@@ -63,7 +63,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
     }
 
     def log(events: List[Event]) = events.foreach { event =>
-      if (writeAhead) eventLog.append(event) else eventLog.appendAsync(event)(entry => ())
+      if (writeAhead) eventLog.append(event) else eventLog.appendAsync(event)
     }
   }
 }

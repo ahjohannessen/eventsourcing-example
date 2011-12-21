@@ -1,31 +1,34 @@
 package dev.example.eventsourcing.event
 
 import akka.actor._
-
-import java.util.concurrent.CopyOnWriteArrayList
+import akka.dispatch._
 
 class TestEventLog extends EventLog {
-  import scala.collection.JavaConverters._
-
-  val eventLogId = TestEventLog.nextId()
-  val storedEvents = new CopyOnWriteArrayList[EventLogEntry]()
-
   val logger = Actor.actorOf(new Logger).start
+  val eventLogId = TestEventLog.nextId()
 
   def iterator(fromLogId: Long, fromLogEntryId: Long) =
-    storedEvents.asScala.drop(fromLogEntryId.toInt).iterator
+    getEntries.drop(fromLogEntryId.toInt).iterator
 
-  def appendAsync(event: Event)(f: EventLogEntry => Unit) =
-    logger ! LogEvent(event, f)
+  def getEntries: List[EventLogEntry] =
+    (logger ? GetEntries()).as[List[EventLogEntry]].get
 
-  case class LogEvent(event: Event, callback: EventLogEntry => Unit)
+  def appendAsync(event: Event): Future[EventLogEntry] =
+    (logger ? LogEvent(event)).asInstanceOf[Future[EventLogEntry]]
+
+  case class LogEvent(event: Event)
+  case class GetEntries()
 
   class Logger extends Actor {
+    var entries = List.empty[EventLogEntry]
     def receive = {
-      case LogEvent(event, callback) => {
-        val entry = EventLogEntry(eventLogId, storedEvents.size, event)
-        storedEvents.add(entry)
-        callback(entry)
+      case LogEvent(event) => {
+        val entry = EventLogEntry(eventLogId, entries.size, event)
+        entries = entry :: entries
+        self.reply(entry)
+      }
+      case GetEntries() => {
+        self.reply(entries.reverse)
       }
     }
   }
