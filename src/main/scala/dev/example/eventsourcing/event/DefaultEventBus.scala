@@ -3,16 +3,17 @@ package dev.example.eventsourcing.event
 import akka.actor._
 
 class DefaultEventBus extends EventBus {
-  private val subscriberRegistry = Actor.actorOf(new SubscriberRegistry).start
+  private val registry = Actor.actorOf(new SubscriberRegistry).start
+  private val resequencer = Actor.actorOf(new Resequencer(registry)).start
 
   def subscribe(subscriber: Subscriber, topic: String) =
-    subscriberRegistry ! Subscribe(subscriber, topic)
+    resequencer ! Subscribe(subscriber, topic)
 
   def unsubscribe(subscriber: Subscriber, topic: String) =
-    subscriberRegistry ! Unsubscribe(subscriber, topic)
+    resequencer ! Unsubscribe(subscriber, topic)
 
   def publish(event: Event, topic: String) =
-    subscriberRegistry ! Publish(event, topic)
+    resequencer ! Publish(event, topic)
 
   private class SubscriberRegistry extends Actor {
     var subscribers = Map.empty[String, List[Subscriber]]
@@ -29,6 +30,26 @@ class DefaultEventBus extends EventBus {
           case Some(sl) => sl.foreach(_.onEvent(event))
           case None     => ()
         }
+      }
+      case entry: EventLogEntry => subscribers.get("log").foreach { subscribers =>
+        subscribers.foreach(_.onEvent(EventLogged(entry)))
+      }
+    }
+  }
+
+  private class Resequencer(target: ActorRef) extends Actor {
+    var resequencers = Map.empty[Long, ActorRef] // one resequencer per logId
+
+    def receive = {
+      case Publish(EventLogged(e @ EventLogEntry(logId, _, _)), "log") => resequencer(logId) forward e
+      case other => target forward other
+    }
+
+    def resequencer(logId: Long) = resequencers.get(logId) match {
+      case Some(resequencer) => resequencer
+      case None              => {
+        resequencers = resequencers + (logId -> Actor.actorOf(new EventLogEntryResequencer(target)).start)
+        resequencers(logId)
       }
     }
   }

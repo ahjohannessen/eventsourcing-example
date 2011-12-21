@@ -70,7 +70,9 @@ object ExampleBuild extends Build {
       // runtime dependencies
       libraryDependencies ++= Seq (configgy),
       // test dependencies
-      libraryDependencies ++= Seq (scalatest)
+      libraryDependencies ++= Seq (scalatest),
+      // execute tests sequentially
+      parallelExecution in Test := false
     )
   )
 }
