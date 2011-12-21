@@ -6,33 +6,22 @@ class DefaultEventBus extends EventBus {
   private val registry = Actor.actorOf(new SubscriberRegistry).start
   private val resequencer = Actor.actorOf(new Resequencer(registry)).start
 
-  def subscribe(subscriber: Subscriber, topic: String) =
-    resequencer ! Subscribe(subscriber, topic)
+  def subscribe(subscriber: Subscriber) =
+    registry ! Subscribe(subscriber)
 
-  def unsubscribe(subscriber: Subscriber, topic: String) =
-    resequencer ! Unsubscribe(subscriber, topic)
+  def unsubscribe(subscriber: Subscriber) =
+    registry ! Unsubscribe(subscriber)
 
-  def publish(event: Event, topic: String) =
-    resequencer ! Publish(event, topic)
+  def publish(entry: EventLogEntry) =
+    resequencer ! entry
 
   private class SubscriberRegistry extends Actor {
-    var subscribers = Map.empty[String, List[Subscriber]]
+    var subscribers = List.empty[Subscriber]
 
     def receive = {
-      case Subscribe(subscriber, topic) => {
-        subscribers.get(topic) match {
-          case Some(sl) => subscribers = subscribers + (topic -> (subscriber :: sl))
-          case None     => subscribers = subscribers + (topic -> List(subscriber))
-        }
-      }
-      case Publish(event, topic) => {
-        subscribers.get(topic) match {
-          case Some(sl) => sl.foreach(_.onEvent(event))
-          case None     => ()
-        }
-      }
-      case entry: EventLogEntry => subscribers.get("log").foreach { subscribers =>
-        subscribers.foreach(_.onEvent(EventLogged(entry)))
+      case Subscribe(subscriber) => subscribers = subscriber :: subscribers
+      case entry: EventLogEntry => subscribers foreach { subscriber =>
+        subscriber.handle(entry)
       }
     }
   }
@@ -41,8 +30,7 @@ class DefaultEventBus extends EventBus {
     var resequencers = Map.empty[Long, ActorRef] // one resequencer per logId
 
     def receive = {
-      case Publish(EventLogged(e @ EventLogEntry(logId, _, _)), "log") => resequencer(logId) forward e
-      case other => target forward other
+      case entry: EventLogEntry => resequencer(entry.logId) forward entry
     }
 
     def resequencer(logId: Long) = resequencers.get(logId) match {
@@ -54,7 +42,6 @@ class DefaultEventBus extends EventBus {
     }
   }
 
-  private case class Subscribe(subscriber: Subscriber, topic: String)
-  private case class Unsubscribe(subscriber: Subscriber, topic: String)
-  private case class Publish(event: Event, topic: String)
+  private case class Subscribe(subscriber: Subscriber)
+  private case class Unsubscribe(subscriber: Subscriber)
 }

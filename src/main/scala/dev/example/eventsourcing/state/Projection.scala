@@ -81,10 +81,7 @@ trait EventProjection[S] extends Projection[S, Event] with Subscriber {
       eventLog.iterator(fromLogId, fromLogEntryId + 1).foreach(update)
   }
 
-  def onEvent(event: Event) = event match {
-    case EventLogged(entry) => update(entry)
-    case event              => // ignore
-  }
+  def handle(entry: EventLogEntry) = update(entry)
 
   protected def update(entry: EventLogEntry) = agent send { snapshot =>
     Snapshot(entry.logId, entry.logEntryId, projectionLogic(snapshot.state, entry.event))

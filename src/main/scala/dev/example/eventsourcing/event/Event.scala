@@ -23,19 +23,16 @@ trait EventLog extends Iterable[EventLogEntry] {
 }
 
 trait EventBus {
-  def subscribe(subscriber: Subscriber, topic: String)
-  def unsubscribe(subscriber: Subscriber, topic: String)
-  def publish(event: Event, topic: String)
+  def subscribe(subscriber: Subscriber)
+  def unsubscribe(subscriber: Subscriber)
+  def publish(entry: EventLogEntry)
 }
 
-trait EventLoggedNotification extends EventLog {
+trait EventLogEntryPublication extends EventLog {
   def eventBus: EventBus
 
   abstract override def appendAsync(event: Event)(f: EventLogEntry => Unit) {
-    super.appendAsync(event) { entry =>
-      f(entry)
-      eventBus.publish(EventLogged(entry), "log")
-    }
+    super.appendAsync(event) { entry => f(entry); eventBus.publish(entry) }
   }
 }
 
@@ -61,7 +58,7 @@ class EventLogEntryResequencer(target: ActorRef) extends Actor {
 }
 
 trait Subscriber {
-  def onEvent(event: Event)
+  def handle(entry: EventLogEntry)
 }
 
 
