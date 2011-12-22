@@ -1,6 +1,5 @@
 package dev.example.eventsourcing.event
 
-import akka.actor.{Actor, ActorRef}
 import akka.dispatch._
 
 trait Event

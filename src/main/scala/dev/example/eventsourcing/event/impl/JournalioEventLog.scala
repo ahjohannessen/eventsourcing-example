@@ -45,7 +45,6 @@ class JournalioEventLog extends EventLog {
   def appendAsync(event: Event): Future[EventLogEntry] = {
     val promise = new DefaultCompletableFuture[EventLogEntry]
     val location = journal.write(serialize(event), true) // sync
-    println("wrote %s" format location)
     promise.completeWithResult(EventLogEntry(
       location.getDataFileId,
       location.getPointer,
