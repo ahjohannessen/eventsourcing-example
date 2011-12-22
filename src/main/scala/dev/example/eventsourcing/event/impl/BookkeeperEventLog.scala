@@ -1,4 +1,6 @@
-package dev.example.eventsourcing.event
+package dev.example.eventsourcing.event.impl
+
+import java.util.concurrent.atomic.AtomicLong
 
 import akka.dispatch._
 
@@ -6,18 +8,20 @@ import org.apache.bookkeeper.client.AsyncCallback.AddCallback
 import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client._
 
+import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.util.Serialization._
 
-class DefaultEventLog extends EventLog {
+class BookkeeperEventLog extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
 
   private val secret = "secret".getBytes
   private val digest = DigestType.MAC
 
-  val readLogId = DefaultEventLog.maxLogId
+  val readLogId = BookkeeperEventLog.maxLogId
 
   val writeLog = createLog()
   val writeLogId = writeLog.getId
+  val writeCounter = new AtomicLong(-1L)
 
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
@@ -26,7 +30,7 @@ class DefaultEventLog extends EventLog {
     val promise = new DefaultCompletableFuture[EventLogEntry]()
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, event))
+        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, writeCounter.incrementAndGet(), event))
         else         promise.completeWithException(BKException.create(rc))
       }
     }, null)
@@ -42,12 +46,14 @@ class DefaultEventLog extends EventLog {
   private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[EventLogEntry] {
     import scala.collection.JavaConverters._
 
-    // TODO: do not keep all entries of a ledger in memory
+    // TODO: do not hold all entries of a ledger in memory
     var currentIterator = iteratorFor(fromLogId, fromLogEntryId)
     var currentLogId = fromLogId
 
+    val readCounter = new AtomicLong(-1L)
+
     def toEventLogEntry(entry: LedgerEntry) =
-      EventLogEntry(entry.getLedgerId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])
+      EventLogEntry(entry.getLedgerId, entry.getEntryId, readCounter.incrementAndGet(), deserialize(entry.getEntry).asInstanceOf[Event])
 
     def iteratorFor(logId: Long, fromLogEntryId: Long) = {
       var log: LedgerHandle = null
@@ -68,6 +74,7 @@ class DefaultEventLog extends EventLog {
       else {
         currentLogId = currentLogId + 1
         currentIterator = iteratorFor(currentLogId, 0L)
+        readCounter.set(-1L)
         hasNext
       }
     }
@@ -81,7 +88,7 @@ class DefaultEventLog extends EventLog {
   }
 }
 
-object DefaultEventLog {
+object BookkeeperEventLog {
   private val zookeeper = new com.twitter.zookeeper.ZooKeeperClient("localhost:2181")
 
   val maxLogId = zookeeper.getChildren("/ledgers").filter(_.startsWith("L")).map(_.substring(1).toLong)

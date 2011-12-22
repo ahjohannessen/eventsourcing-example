@@ -68,7 +68,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
   }
 }
 
-trait EventProjection[S] extends Projection[S, Event] with Subscriber {
+trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[EventLogEntry] {
   private lazy val agent = Agent(Snapshot(-1L, -1L, initialState))
 
   def currentState: S = currentSnapshot.state
@@ -81,7 +81,7 @@ trait EventProjection[S] extends Projection[S, Event] with Subscriber {
       eventLog.iterator(fromLogId, fromLogEntryId + 1).foreach(update)
   }
 
-  def handle(entry: EventLogEntry) = update(entry)
+  def receive(entry: EventLogEntry) = update(entry)
 
   protected def update(entry: EventLogEntry) = agent send { snapshot =>
     Snapshot(entry.logId, entry.logEntryId, projectionLogic(snapshot.state, entry.event))

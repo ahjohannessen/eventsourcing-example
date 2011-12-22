@@ -10,10 +10,10 @@ import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state.EventProjectionCounter
 
 class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val eventLog = new TestEventLog with EventLogEntryPublication { val eventBus = new DefaultEventBus }
+  val eventLog = new TestEventLog with EventLogEntryPublication { val channel = new Channel[EventLogEntry] }
   val service = InvoiceService(eventLog)
 
-  import eventLog.eventBus
+  import eventLog.channel
 
   override def afterAll = Actor.registry.shutdownAll()
 
@@ -21,7 +21,7 @@ class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAft
     "sourced from a live event stream" must {
       "replicate service state" in {
         val replicator = new InvoiceReplicator with EventProjectionCounter[Map[String, Invoice]]
-        eventBus.subscribe(replicator)
+        channel.subscribe(replicator)
         replicator.expect(3)
         service.createInvoice("test").get
         service.addInvoiceItem("test", None, InvoiceItem("a", 0, 0)).get

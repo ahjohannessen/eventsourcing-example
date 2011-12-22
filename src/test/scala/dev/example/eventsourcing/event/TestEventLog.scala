@@ -20,10 +20,13 @@ class TestEventLog extends EventLog {
   case class GetEntries()
 
   class Logger extends Actor {
+    var counter = 0L;
     var entries = List.empty[EventLogEntry]
     def receive = {
       case LogEvent(event) => {
-        val entry = EventLogEntry(eventLogId, entries.size, event)
+        
+        val entry = EventLogEntry(eventLogId, entries.size, counter, event)
+        counter = counter + 1
         entries = entry :: entries
         self.reply(entry)
       }
