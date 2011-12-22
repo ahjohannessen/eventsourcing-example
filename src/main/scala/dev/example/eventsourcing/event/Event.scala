@@ -8,7 +8,7 @@ trait Event
 case class EventLogEntry(logId: Long, logEntryId: Long, seqnr: Long, event: Event)
 
 trait EventLog extends Iterable[EventLogEntry] {
-  def iterator: Iterator[EventLogEntry] = iterator(1L, 0L)
+  def iterator: Iterator[EventLogEntry]
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry]
 
   def appendAsync(event: Event): Future[EventLogEntry]

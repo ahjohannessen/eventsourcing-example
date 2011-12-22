@@ -7,6 +7,8 @@ class TestEventLog extends EventLog {
   val logger = Actor.actorOf(new Logger).start
   val eventLogId = TestEventLog.nextId()
 
+  def iterator = iterator(1L, 0L)
+
   def iterator(fromLogId: Long, fromLogEntryId: Long) =
     getEntries.drop(fromLogEntryId.toInt).iterator
 

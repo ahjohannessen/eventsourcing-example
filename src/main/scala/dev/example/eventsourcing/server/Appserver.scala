@@ -1,7 +1,7 @@
 package dev.example.eventsourcing.server
 
 import dev.example.eventsourcing.event._
-import dev.example.eventsourcing.event.impl.BookkeeperEventLog
+import dev.example.eventsourcing.event.impl.JournalioEventLog
 import dev.example.eventsourcing.service._
 
 trait Appserver {
@@ -12,7 +12,7 @@ trait Appserver {
 
 object Appserver {
   def boot(): Appserver = new Appserver {
-    val eventLog = new BookkeeperEventLog with EventLogEntryPublication { val channel = new Channel[EventLogEntry] }
+    val eventLog = new JournalioEventLog with EventLogEntryPublication { val channel = new Channel[EventLogEntry] }
 
     val invoiceReplicator = InvoiceReplicator.replay(eventLog)
     val invoiceStatistics = InvoiceStatistics.replay(eventLog)

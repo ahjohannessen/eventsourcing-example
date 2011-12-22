@@ -1,7 +1,5 @@
 package dev.example.eventsourcing.event.impl
 
-import java.util.concurrent.atomic.AtomicLong
-
 import akka.dispatch._
 
 import org.apache.bookkeeper.client.AsyncCallback.AddCallback
@@ -21,7 +19,8 @@ class BookkeeperEventLog extends EventLog {
 
   val writeLog = createLog()
   val writeLogId = writeLog.getId
-  val writeCounter = new AtomicLong(-1L)
+
+  def iterator = iterator(1L, 0L)
 
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
@@ -30,7 +29,7 @@ class BookkeeperEventLog extends EventLog {
     val promise = new DefaultCompletableFuture[EventLogEntry]()
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, writeCounter.incrementAndGet(), event))
+        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, entryId, event))
         else         promise.completeWithException(BKException.create(rc))
       }
     }, null)
@@ -50,10 +49,8 @@ class BookkeeperEventLog extends EventLog {
     var currentIterator = iteratorFor(fromLogId, fromLogEntryId)
     var currentLogId = fromLogId
 
-    val readCounter = new AtomicLong(-1L)
-
     def toEventLogEntry(entry: LedgerEntry) =
-      EventLogEntry(entry.getLedgerId, entry.getEntryId, readCounter.incrementAndGet(), deserialize(entry.getEntry).asInstanceOf[Event])
+      EventLogEntry(entry.getLedgerId, entry.getEntryId, entry.getEntryId, deserialize(entry.getEntry).asInstanceOf[Event])
 
     def iteratorFor(logId: Long, fromLogEntryId: Long) = {
       var log: LedgerHandle = null
@@ -74,7 +71,6 @@ class BookkeeperEventLog extends EventLog {
       else {
         currentLogId = currentLogId + 1
         currentIterator = iteratorFor(currentLogId, 0L)
-        readCounter.set(-1L)
         hasNext
       }
     }
