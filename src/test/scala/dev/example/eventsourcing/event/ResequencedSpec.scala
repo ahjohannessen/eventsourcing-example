@@ -7,12 +7,12 @@ import akka.actor.Actor
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
 import org.scalatest.matchers.MustMatchers
 
-class ResequencedReceiveSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
+class ResequencedSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
   override def afterAll = Actor.registry.shutdownAll()
 
-  "A ResequencedReceive instance" must {
+  "A Resequenced instance" must {
     "resequence event log entries" in {
-      val receiver = new Receiver(10) with ResequencedReceive
+      val receiver = new Receiver(10) with Resequenced
 
       receiver.receive(EventLogEntry(-1, 1, 1, null))
       receiver.receive(EventLogEntry(-1, 4, 4, null))

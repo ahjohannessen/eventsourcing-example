@@ -2,7 +2,7 @@ package dev.example.eventsourcing.event
 
 import akka.actor.{Actor, ActorRef}
 
-trait ResequencedReceive extends ChannelSubscriber[EventLogEntry] {
+trait Resequenced extends ChannelSubscriber[EventLogEntry] {
   private val registry = Actor.actorOf(new ResequencerRegistry(this)).start
 
   abstract override def receive(message: EventLogEntry) =
@@ -12,7 +12,7 @@ trait ResequencedReceive extends ChannelSubscriber[EventLogEntry] {
     super.receive(message)
 }
 
-private[event] class ResequencerRegistry(target: ResequencedReceive) extends Actor {
+private[event] class ResequencerRegistry(target: Resequenced) extends Actor {
   var resequencers = Map.empty[Long, ActorRef] // logId -> resequencer mapping
 
   def receive = {
@@ -28,7 +28,7 @@ private[event] class ResequencerRegistry(target: ResequencedReceive) extends Act
   }
 }
 
-private[event] class Resequencer(target: ResequencedReceive) extends Actor {
+private[event] class Resequencer(target: Resequenced) extends Actor {
   import scala.collection.mutable.Map
 
   val delayed = Map.empty[Long, EventLogEntry]

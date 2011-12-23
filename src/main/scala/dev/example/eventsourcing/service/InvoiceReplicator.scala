@@ -4,7 +4,7 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state.EventProjection
 
-class InvoiceReplicator extends EventProjection[Map[String, Invoice]] with ResequencedReceive {
+class InvoiceReplicator extends EventProjection[Map[String, Invoice]] with Resequenced {
   val initialState = Map.empty[String, Invoice]
 
   val projectionLogic = (state: Map[String, Invoice], event: Event) => event match {
