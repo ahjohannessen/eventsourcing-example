@@ -8,30 +8,31 @@ import akka.dispatch._
 import journal.io.api._
 
 import dev.example.eventsourcing.event._
+import dev.example.eventsourcing.util.Iterator._
 import dev.example.eventsourcing.util.Serialization._
 
 /**
- * Highly experimental.
+ * Experimental.
  */
 class JournalioEventLog extends EventLog {
   import scala.collection.JavaConverters._
 
-  val writeCounter = new AtomicLong(-1L)
-
-  val journalDir = new File("target/journalio")
-  val journal = new Journal
+  private val writeCounter = new AtomicLong(-1L)
+  private val journalDir = new File("target/journalio")
+  private val journal = new Journal
 
   journalDir.mkdirs()
-
   journal.setDirectory(journalDir)
   journal.setMaxFileLength(Int.MaxValue)
   journal.setMaxWriteBatchSize(Int.MaxValue)
   journal.open()
 
-
   def iterator = iterator(1L, 1L)
 
-  def iterator(fromLogId: Long, fromLogEntryId: Long) = {
+  def iterator(fromLogId: Long, fromLogEntryId: Long) =
+    if (journal.getFiles.isEmpty) new EmptyIterator[EventLogEntry] else iteratorUnsafe(fromLogId, fromLogEntryId)
+
+  def iteratorUnsafe(fromLogId: Long, fromLogEntryId: Long) = {
     val readCounter = new AtomicLong(-1L)
     journal.redo(new Location(fromLogId.toInt, fromLogEntryId.toInt)).asScala.iterator.map { location =>
       new EventLogEntry(

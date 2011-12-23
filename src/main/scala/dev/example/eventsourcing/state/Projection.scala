@@ -14,7 +14,7 @@ trait Projection[S, A] {
   def initialState: S
   def currentState: S
 
-  def projectionLogic: (S, A) => S
+  def projectionLogic: PartialFunction[(S, A), S]
 }
 
 trait UpdateProjection[S, A] extends Projection[S, A] {
@@ -72,22 +72,25 @@ trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[Eve
   private lazy val agent = Agent(Snapshot(-1L, -1L, initialState))
 
   def currentState: S = currentSnapshot.state
+
   def currentSnapshot = agent()
+
+  def receive(entry: EventLogEntry) = update(entry)
+
+  def handles(event: Event) = projectionLogic.isDefinedAt((null.asInstanceOf[S], event))
+
+  def update(entry: EventLogEntry) = if (handles(entry.event)) agent send { snapshot =>
+    Snapshot(entry.logId, entry.logEntryId, projectionLogic(snapshot.state, entry.event))
+  }
 
   def replay(eventLog: EventLog) = currentSnapshot match {
     case Snapshot(-1L, _, _) =>
       eventLog.iterator.foreach(update)
     case Snapshot(fromLogId, fromLogEntryId, event) => {
       val iterator = eventLog.iterator(fromLogId, fromLogEntryId)
-      iterator.next() // ignore already consumed event
+      iterator.next() // ignore already processed event
       iterator.foreach(update)
     }
-  }
-
-  def receive(entry: EventLogEntry) = update(entry)
-
-  protected def update(entry: EventLogEntry) = agent send { snapshot =>
-    Snapshot(entry.logId, entry.logEntryId, projectionLogic(snapshot.state, entry.event))
   }
 
   protected def await() = agent.await()

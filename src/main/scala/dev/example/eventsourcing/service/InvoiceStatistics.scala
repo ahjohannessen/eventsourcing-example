@@ -7,14 +7,10 @@ import dev.example.eventsourcing.state.EventProjection
 class InvoiceStatistics extends EventProjection[Map[String, Int]] {
   val initialState = Map.empty[String, Int]
 
-  val projectionLogic = (state: Map[String, Int], event: Event) => {
-    def increment(invoiceId: String) = state.get(invoiceId) match {
-      case Some(count) => state + (invoiceId -> (count + 1))
-      case None        => state + (invoiceId -> 1)
-    }
-    event match {
-      case e: InvoiceItemAdded => increment(e.invoiceId)
-      case e: InvoiceEvent     => state
+  def projectionLogic = {
+    case (state, e: InvoiceItemAdded) => state.get(e.invoiceId) match {
+      case Some(count) => state + (e.invoiceId -> (count + 1))
+      case None        => state + (e.invoiceId -> 1)
     }
   }
 }

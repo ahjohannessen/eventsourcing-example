@@ -9,7 +9,7 @@ import dev.example.eventsourcing.event.EventLog
 trait PaymentService {
   def eventLog: EventLog
 
-  def requestPayment(invoice: Invoice, to: InvoiceAddress): Unit = {
+  def requestPayment(invoice: Invoice, to: InvoiceAddress) {
     // send an invoice to invoice address and
     // after having received the payment ...
     eventLog.append(PaymentReceived(invoice.id, invoice.total))

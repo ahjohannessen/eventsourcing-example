@@ -7,8 +7,12 @@ import org.apache.bookkeeper.client.BookKeeper.DigestType
 import org.apache.bookkeeper.client._
 
 import dev.example.eventsourcing.event._
+import dev.example.eventsourcing.util.Iterator._
 import dev.example.eventsourcing.util.Serialization._
 
+/**
+ * Experimental.
+ */
 class BookkeeperEventLog extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
 
@@ -23,7 +27,7 @@ class BookkeeperEventLog extends EventLog {
   def iterator = iterator(1L, 0L)
 
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry] =
-    if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator
+    if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator[EventLogEntry]
 
   def appendAsync(event: Event): Future[EventLogEntry] = {
     val promise = new DefaultCompletableFuture[EventLogEntry]()
@@ -45,7 +49,6 @@ class BookkeeperEventLog extends EventLog {
   private class EventIterator(fromLogId: Long, fromLogEntryId: Long) extends Iterator[EventLogEntry] {
     import scala.collection.JavaConverters._
 
-    // TODO: do not hold all entries of a ledger in memory
     var currentIterator = iteratorFor(fromLogId, fromLogEntryId)
     var currentLogId = fromLogId
 
@@ -76,11 +79,6 @@ class BookkeeperEventLog extends EventLog {
     }
 
     def next() = if (hasNext) currentIterator.next() else throw new NoSuchElementException
-  }
-
-  private class EmptyIterator extends Iterator[EventLogEntry] {
-    def hasNext = false
-    def next() = throw new NoSuchElementException
   }
 }
 

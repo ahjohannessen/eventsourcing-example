@@ -7,9 +7,9 @@ import dev.example.eventsourcing.state.EventProjection
 class InvoiceReplicator extends EventProjection[Map[String, Invoice]] with Resequenced {
   val initialState = Map.empty[String, Invoice]
 
-  val projectionLogic = (state: Map[String, Invoice], event: Event) => event match {
-    case e: InvoiceCreated => state + (e.invoiceId -> Invoice.handle(e))
-    case e: InvoiceEvent   => state + (e.invoiceId -> state(e.invoiceId).handle(e))
+  def projectionLogic = {
+    case (state, e: InvoiceCreated) => state + (e.invoiceId -> Invoice.handle(e))
+    case (state, e: InvoiceEvent)   => state + (e.invoiceId -> state(e.invoiceId).handle(e))
   }
 }
 

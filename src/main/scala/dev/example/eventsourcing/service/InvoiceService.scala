@@ -7,15 +7,13 @@ import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state._
 
 trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
-  val projectionLogic = (state: Map[String, Invoice], updated: Invoice) => state + (updated.id -> updated)
-
   //
   // Consistent reads
   //
 
   def getInvoice(invoiceId: String): Option[Invoice] = currentState.get(invoiceId)
   def getInvoices: Iterable[Invoice] = currentState.values
-  
+
   //
   // Updates
   //
@@ -48,6 +46,14 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
 
   def payInvoice(invoiceId: String, version: Option[Long], amount: BigDecimal): Future[DomainValidation[Invoice]] =
     updateInvoice(invoiceId, version) { invoice => invoice.pay(amount) }
+
+  //
+  // Projection
+  //
+
+  def projectionLogic = {
+    case (state, updated) => state + (updated.id -> updated)
+  }
 }
 
 object InvoiceService {
