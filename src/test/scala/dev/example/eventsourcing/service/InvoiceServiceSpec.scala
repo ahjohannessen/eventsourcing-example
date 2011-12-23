@@ -53,7 +53,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
     "asked to update an existing invoice with matching version" must {
       "return the updated invoice" in {
         service.addInvoiceItem("test", Some(1), InvoiceItem("b", 0, 0)).get must
-          be(Success(Invoice(id = "test", version = 2, items = List(InvoiceItem("b", 0, 0), InvoiceItem("a", 0, 0)))))
+          be(Success(Invoice(id = "test", version = 2, items = List(InvoiceItem("a", 0, 0), InvoiceItem("b", 0, 0)))))
       }
       "have the update event logged" in {
         eventLog.toList.last.event must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))

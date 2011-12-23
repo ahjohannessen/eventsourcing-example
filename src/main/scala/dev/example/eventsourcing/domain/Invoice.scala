@@ -21,7 +21,7 @@ case class Invoice(
     else               update(InvoiceSent(id, address))
 
   def handle(event: InvoiceEvent) = event match {
-    case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = item :: items)
+    case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = items :+ item)
     case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
     case InvoiceSent(_, to)              => copy(version = version + 1, sentTo = Some(to))
   }
