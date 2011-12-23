@@ -7,7 +7,8 @@ case class Invoice(
     version: Long = 0,
     items: List[InvoiceItem] = Nil,
     discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None) extends Aggregate[InvoiceEvent, Invoice] with Handler[InvoiceEvent, Invoice] {
+    sentTo: Option[InvoiceAddress] = None,
+    paid: Boolean = false) extends Aggregate[InvoiceEvent, Invoice] with Handler[InvoiceEvent, Invoice] {
 
   def addItem(item: InvoiceItem): Update[InvoiceEvent, Invoice] =
     update(InvoiceItemAdded(id, item))
@@ -18,12 +19,17 @@ case class Invoice(
 
   def sendTo(address: InvoiceAddress): Update[InvoiceEvent, Invoice] =
     if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
-    else               update(InvoiceSent(id, address))
+    else               update(InvoiceSent(id, this, address))
+
+  def pay(amount: BigDecimal): Update[InvoiceEvent, Invoice] =
+    if (amount < total) Update.reject(DomainError("paid amount less than total amount"))
+    else                update(InvoicePaid(id))
 
   def handle(event: InvoiceEvent) = event match {
     case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = items :+ item)
     case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
-    case InvoiceSent(_, to)              => copy(version = version + 1, sentTo = Some(to))
+    case InvoiceSent(_, _, to)           => copy(version = version + 1, sentTo = Some(to))
+    case InvoicePaid(_)                  => copy(version = version + 1, paid = true)
   }
 
   def total: BigDecimal = discount map (_ + sum) getOrElse sum
@@ -54,4 +60,5 @@ sealed trait InvoiceEvent extends Event {
 case class InvoiceCreated(invoiceId: String) extends InvoiceEvent
 case class InvoiceItemAdded(invoiceId: String, item: InvoiceItem) extends InvoiceEvent
 case class InvoiceDiscountSet(invoiceId: String, discount: BigDecimal) extends InvoiceEvent
-case class InvoiceSent(invoiceId: String, to: InvoiceAddress) extends InvoiceEvent
+case class InvoiceSent(invoiceId: String, invoice: Invoice, to: InvoiceAddress) extends InvoiceEvent
+case class InvoicePaid(invoiceId: String) extends InvoiceEvent

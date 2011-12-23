@@ -45,6 +45,9 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
 
   def sendInvoiceTo(invoiceId: String, version: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
     updateInvoice(invoiceId, version) { invoice => invoice.sendTo(to) }
+
+  def payInvoice(invoiceId: String, version: Option[Long], amount: BigDecimal): Future[DomainValidation[Invoice]] =
+    updateInvoice(invoiceId, version) { invoice => invoice.pay(amount) }
 }
 
 object InvoiceService {
