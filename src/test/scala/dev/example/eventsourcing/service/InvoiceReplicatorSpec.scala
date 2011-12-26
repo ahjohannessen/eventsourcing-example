@@ -20,7 +20,7 @@ class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAft
   "An invoice replicator" when {
     "sourced from a live event stream" must {
       "replicate service state" in {
-        val replicator = new InvoiceReplicator with EventProjectionCounter[Map[String, Invoice]]
+        val replicator = new InvoiceReplicator with Resequenced with EventProjectionCounter[Map[String, Invoice]]
         channel.subscribe(replicator)
         replicator.expect(3)
         service.createInvoice("test").get
@@ -31,7 +31,7 @@ class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAft
     }
     "sourced from a replayed event stream" must {
       "recover service state" in {
-        val replicator = new InvoiceReplicator with EventProjectionCounter[Map[String, Invoice]]
+        val replicator = new InvoiceReplicator with Resequenced with EventProjectionCounter[Map[String, Invoice]]
         replicator.expect(3)
         replicator.replay(eventLog)
         replicator.await().state must be(service.currentState)
