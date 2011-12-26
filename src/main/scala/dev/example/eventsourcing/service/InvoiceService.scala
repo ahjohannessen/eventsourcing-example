@@ -31,7 +31,7 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
     }
   }
 
-  def updateInvoice(invoiceId: String, expectedVersion: Option[Long])(f: Invoice => Update[InvoiceEvent, Invoice]) = transacted { state =>
+  def updateInvoice[B <: Invoice](invoiceId: String, expectedVersion: Option[Long])(f: Invoice => Update[InvoiceEvent, B]) = transacted { state =>
     state.get(invoiceId) match {
       case None          => Update.reject(DomainError("invoice %s: does not exist" format invoiceId))
       case Some(invoice) => for {
@@ -41,7 +41,7 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
     }
   }
 
-  def updateDraftInvoice(invoiceId: String, expectedVersion: Option[Long])(f: DraftInvoice => Update[InvoiceEvent, Invoice]) =
+  def updateDraftInvoice[B <: Invoice](invoiceId: String, expectedVersion: Option[Long])(f: DraftInvoice => Update[InvoiceEvent, B]) =
     updateInvoice(invoiceId, expectedVersion) { invoice =>
       invoice match {
         case invoice: DraftInvoice => f(invoice)
@@ -49,17 +49,16 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
       }
     }
 
-  def addInvoiceItem(invoiceId: String, expectedVersion: Option[Long], invoiceItem: InvoiceItem): Future[DomainValidation[Invoice]] =
+  def addInvoiceItem(invoiceId: String, expectedVersion: Option[Long], invoiceItem: InvoiceItem): Future[DomainValidation[DraftInvoice]] =
     updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.addItem(invoiceItem) }
 
-  def setInvoiceDiscount(invoiceId: String, expectedVersion: Option[Long], discount: BigDecimal): Future[DomainValidation[Invoice]] =
+  def setInvoiceDiscount(invoiceId: String, expectedVersion: Option[Long], discount: BigDecimal): Future[DomainValidation[DraftInvoice]] =
     updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.setDiscount(discount) }
 
-  def sendInvoiceTo(invoiceId: String, expectedVersion: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
+  def sendInvoiceTo(invoiceId: String, expectedVersion: Option[Long], to: InvoiceAddress): Future[DomainValidation[SentInvoice]] =
     updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.sendTo(to) }
 
-
-  def payInvoice(invoiceId: String, expectedVersion: Option[Long], amount: BigDecimal): Future[DomainValidation[Invoice]] =
+  def payInvoice(invoiceId: String, expectedVersion: Option[Long], amount: BigDecimal): Future[DomainValidation[PaidInvoice]] =
     updateInvoice(invoiceId, expectedVersion) { invoice =>
       invoice match {
         case invoice: SentInvoice => invoice.pay(amount)
