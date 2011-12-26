@@ -2,52 +2,92 @@ package dev.example.eventsourcing.domain
 
 import dev.example.eventsourcing.event.Event
 
-case class Invoice(
-    id: String,
-    version: Long = 0,
-    items: List[InvoiceItem] = Nil,
-    discount: Option[BigDecimal] = None,
-    sentTo: Option[InvoiceAddress] = None,
-    paid: Boolean = false) extends Aggregate[InvoiceEvent, Invoice] with Handler[InvoiceEvent, Invoice] {
+sealed trait Invoice extends Aggregate[Invoice] with Handler[InvoiceEvent, Invoice] {
+  def items: List[InvoiceItem]
+  def discount: BigDecimal
 
-  def addItem(item: InvoiceItem): Update[InvoiceEvent, Invoice] =
-    update(InvoiceItemAdded(id, item))
-
-  def setDiscount(discount: BigDecimal): Update[InvoiceEvent, Invoice] =
-    if (sum <= 100) Update.reject(DomainError("discount only on orders with sum > 100"))
-    else            update(InvoiceDiscountSet(id, discount))
-
-  def sendTo(address: InvoiceAddress): Update[InvoiceEvent, Invoice] =
-    if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
-    else               update(InvoiceSent(id, this, address))
-
-  def pay(amount: BigDecimal): Update[InvoiceEvent, Invoice] =
-    if (amount < total) Update.reject(DomainError("paid amount less than total amount"))
-    else                update(InvoicePaid(id))
-
-  def handle(event: InvoiceEvent) = event match {
-    case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = items :+ item)
-    case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = Some(discount))
-    case InvoiceSent(_, _, to)           => copy(version = version + 1, sentTo = Some(to))
-    case InvoicePaid(_)                  => copy(version = version + 1, paid = true)
-  }
-
-  def total: BigDecimal = discount map (_ + sum) getOrElse sum
+  def total: BigDecimal = sum - discount
   def sum: BigDecimal = items.foldLeft(BigDecimal(0)) {
     (sum, item) => sum + item.amount * item.count
   }
 }
 
 object Invoice extends Handler[InvoiceEvent, Invoice] {
-  def create(id: String): Update[InvoiceEvent, Invoice] = update(InvoiceCreated(id))
+  def create(id: String): Update[InvoiceEvent, DraftInvoice] =
+    update(InvoiceCreated(id), transitionToDraft)
 
-  def handle(event: InvoiceEvent) = event match {
-    case event @ InvoiceCreated(invoiceId: String) => new Invoice(invoiceId)
-  }
+  def handle: PartialFunction[InvoiceEvent, Invoice] =
+    transitionToDraft
 
-  def handle(events: List[InvoiceEvent]): Invoice = {
+  def handle(events: List[InvoiceEvent]): Invoice =
     events.drop(1).foldLeft(handle(events(0))) { (invoice, event) => invoice.handle(event) }
+
+  private def transitionToDraft: PartialFunction[InvoiceEvent, DraftInvoice] = {
+    case InvoiceCreated(id) => DraftInvoice(id)
   }
+}
+
+case class DraftInvoice(
+    id: String,
+    version: Long = 0,
+    items: List[InvoiceItem] = Nil,
+    discount: BigDecimal = 0)
+  extends Invoice {
+
+  def addItem(item: InvoiceItem): Update[InvoiceEvent, DraftInvoice] =
+    update(InvoiceItemAdded(id, item), transitionToDraft)
+
+  def setDiscount(discount: BigDecimal): Update[InvoiceEvent, DraftInvoice] =
+    if (sum <= 100) Update.reject(DomainError("discount only on orders with sum > 100"))
+    else            update(InvoiceDiscountSet(id, discount), transitionToDraft)
+
+  def sendTo(address: InvoiceAddress): Update[InvoiceEvent, SentInvoice] =
+    if (items.isEmpty) Update.reject(DomainError("cannot send empty invoice"))
+    else               update(InvoiceSent(id, this, address), transitionToSent)
+
+  def handle: PartialFunction[InvoiceEvent, Invoice] =
+    transitionToDraft orElse transitionToSent
+
+  private def transitionToDraft: PartialFunction[InvoiceEvent, DraftInvoice] = {
+    case InvoiceItemAdded(_, item)       => copy(version = version + 1, items = items :+ item)
+    case InvoiceDiscountSet(_, discount) => copy(version = version + 1, discount = discount)
+  }
+
+  private def transitionToSent: PartialFunction[InvoiceEvent, SentInvoice] = {
+    case InvoiceSent(id, _, address) => SentInvoice(id, version + 1, items, discount, address)
+  }
+}
+
+case class SentInvoice(
+    id: String,
+    version: Long = 0,
+    items: List[InvoiceItem] = Nil,
+    discount: BigDecimal = 0,
+    address: InvoiceAddress)
+  extends Invoice {
+
+  def pay(amount: BigDecimal): Update[InvoiceEvent, PaidInvoice] =
+    if (amount < total) Update.reject(DomainError("paid amount less than total amount"))
+    else                update(InvoicePaid(id), transitionToPaid)
+
+  def handle: PartialFunction[InvoiceEvent, Invoice] =
+    transitionToPaid
+
+  private def transitionToPaid: PartialFunction[InvoiceEvent, PaidInvoice] = {
+    case InvoicePaid(id) => PaidInvoice(id, version + 1, items, discount, address)
+  }
+}
+
+case class PaidInvoice(
+    id: String,
+    version: Long = 0,
+    items: List[InvoiceItem] = Nil,
+    discount: BigDecimal = 0,
+    address: InvoiceAddress)
+  extends Invoice {
+
+  def paid = true
+  def handle = throw new MatchError
 }
 
 case class InvoiceItem(description: String, count: Int, amount: BigDecimal)

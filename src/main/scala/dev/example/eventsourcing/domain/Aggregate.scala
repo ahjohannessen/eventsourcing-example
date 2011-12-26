@@ -1,6 +1,6 @@
 package dev.example.eventsourcing.domain
 
-trait Aggregate[E, +A <: Aggregate[E, A]] {
+trait Aggregate[+A] {
   import Aggregate._
 
   def id: String

@@ -19,7 +19,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
   "An invoice service" when {
     "asked to create a new invoice" must {
       "return the created invoice" in {
-        service.createInvoice("test").get must be(Success(Invoice("test", version = 0)))
+        service.createInvoice("test").get must be(Success(DraftInvoice("test", version = 0)))
       }
       "have the creation event logged" in {
         eventLog.toList.last.event must be(InvoiceCreated("test"))
@@ -34,7 +34,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
     "asked to update an existing invoice" must {
       "return the updated invoice" in {
         service.addInvoiceItem("test", None, InvoiceItem("a", 0, 0)).get must
-          be(Success(Invoice(id = "test", version = 1, items = List(InvoiceItem("a", 0, 0)))))
+          be(Success(DraftInvoice(id = "test", version = 1, items = List(InvoiceItem("a", 0, 0)))))
       }
       "have the update event logged" in {
         eventLog.toList.last.event must be(InvoiceItemAdded("test", InvoiceItem("a", 0, 0)))
@@ -53,7 +53,7 @@ class InvoiceServiceSpec extends WordSpec with MustMatchers with BeforeAndAfterE
     "asked to update an existing invoice with matching version" must {
       "return the updated invoice" in {
         service.addInvoiceItem("test", Some(1), InvoiceItem("b", 0, 0)).get must
-          be(Success(Invoice(id = "test", version = 2, items = List(InvoiceItem("a", 0, 0), InvoiceItem("b", 0, 0)))))
+          be(Success(DraftInvoice(id = "test", version = 2, items = List(InvoiceItem("a", 0, 0), InvoiceItem("b", 0, 0)))))
       }
       "have the update event logged" in {
         eventLog.toList.last.event must be(InvoiceItemAdded("test", InvoiceItem("b", 0, 0)))

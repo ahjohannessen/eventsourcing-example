@@ -26,9 +26,9 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
 
   def currentState: S = ref()
 
-  def transacted(update: S => Update[Event, A]): Future[DomainValidation[A]] = {
-    val promise = new DefaultCompletableFuture[DomainValidation[A]]()
-    def dispatch = updater ! ApplyUpdate(update, promise)
+  def transacted[B <: A](update: S => Update[Event, B]): Future[DomainValidation[B]] = {
+    val promise = new DefaultCompletableFuture[DomainValidation[B]]
+    def dispatch = updater ! ApplyUpdate(update, promise.asInstanceOf[CompletableFuture[DomainValidation[A]]])
 
     if (Stm.activeTransaction) {
       currentState // join
@@ -52,7 +52,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
         update() match {
           case (events, s @ Success(result)) => {
             log(events.reverse) // TODO: handle errors
-            ref set projectionLogic(current, result)
+            ref set projectionLogic(current, result.asInstanceOf[A])
             p.completeWithResult(s)
           }
           case (_, f) => {

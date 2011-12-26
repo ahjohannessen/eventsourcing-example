@@ -7,6 +7,8 @@ import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state._
 
 trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
+  import InvoiceService._
+
   //
   // Consistent reads
   //
@@ -14,11 +16,15 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
   def getInvoice(invoiceId: String): Option[Invoice] = currentState.get(invoiceId)
   def getInvoices: Iterable[Invoice] = currentState.values
 
+  def getDraftInvoices = getInvoices.filter(_.isInstanceOf[DraftInvoice])
+  def getSentInvoices = getInvoices.filter(_.isInstanceOf[SentInvoice])
+  def getPaidInvoices = getInvoices.filter(_.isInstanceOf[SentInvoice])
+
   //
   // Updates
   //
 
-  def createInvoice(invoiceId: String) = transacted { state =>
+  def createInvoice(invoiceId: String): Future[DomainValidation[DraftInvoice]] = transacted { state =>
     state.get(invoiceId) match {
       case Some(invoice) => Update.reject(DomainError("invoice %s: already exists" format invoiceId))
       case None          => Invoice.create(invoiceId)
@@ -35,17 +41,31 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
     }
   }
 
-  def addInvoiceItem(invoiceId: String, version: Option[Long], invoiceItem: InvoiceItem): Future[DomainValidation[Invoice]] =
-    updateInvoice(invoiceId, version) { invoice => invoice.addItem(invoiceItem) }
+  def updateDraftInvoice(invoiceId: String, expectedVersion: Option[Long])(f: DraftInvoice => Update[InvoiceEvent, Invoice]) =
+    updateInvoice(invoiceId, expectedVersion) { invoice =>
+      invoice match {
+        case invoice: DraftInvoice => f(invoice)
+        case invoice: Invoice      => Update.reject(notDraftError(invoiceId))
+      }
+    }
 
-  def setInvoiceDiscount(invoiceId: String, version: Option[Long], discount: BigDecimal): Future[DomainValidation[Invoice]] =
-    updateInvoice(invoiceId, version) { invoice => invoice.setDiscount(discount) }
+  def addInvoiceItem(invoiceId: String, expectedVersion: Option[Long], invoiceItem: InvoiceItem): Future[DomainValidation[Invoice]] =
+    updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.addItem(invoiceItem) }
 
-  def sendInvoiceTo(invoiceId: String, version: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
-    updateInvoice(invoiceId, version) { invoice => invoice.sendTo(to) }
+  def setInvoiceDiscount(invoiceId: String, expectedVersion: Option[Long], discount: BigDecimal): Future[DomainValidation[Invoice]] =
+    updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.setDiscount(discount) }
 
-  def payInvoice(invoiceId: String, version: Option[Long], amount: BigDecimal): Future[DomainValidation[Invoice]] =
-    updateInvoice(invoiceId, version) { invoice => invoice.pay(amount) }
+  def sendInvoiceTo(invoiceId: String, expectedVersion: Option[Long], to: InvoiceAddress): Future[DomainValidation[Invoice]] =
+    updateDraftInvoice(invoiceId, expectedVersion) { invoice => invoice.sendTo(to) }
+
+
+  def payInvoice(invoiceId: String, expectedVersion: Option[Long], amount: BigDecimal): Future[DomainValidation[Invoice]] =
+    updateInvoice(invoiceId, expectedVersion) { invoice =>
+      invoice match {
+        case invoice: SentInvoice => invoice.pay(amount)
+        case invoice: Invoice      => Update.reject(notSentError(invoiceId))
+      }
+    }
 
   //
   // Projection
@@ -57,6 +77,12 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
 }
 
 object InvoiceService {
+  private[service] def notDraftError(invoiceId: String) =
+    DomainError("invoice %s: not a draft invoice" format invoiceId)
+
+  private[service] def notSentError(invoiceId: String) =
+    DomainError("invoice %s: not a sent invoice" format invoiceId)
+
   def apply(log: EventLog, initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
     val eventLog = log
     val initialState = initial
