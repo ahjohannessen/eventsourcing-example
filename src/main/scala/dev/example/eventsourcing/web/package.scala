@@ -23,14 +23,15 @@ package object web {
 
     def this() = this(null)
 
-    @XmlElement def getMessage: java.util.List[String] = errors.asJava
+    @XmlElement
+    def getMessage: java.util.List[String] = errors.asJava
   }
 
+  val rootPath = "/dev/example/eventsourcing"
+  
+  def errorPath(templateName: String) = "%s/error/%s" format (rootPath, templateName)
+  def homePath(templateName: String) = "%s/home/%s" format (rootPath, templateName)
+  def webPath(templateName: String) = "%s/web/%s" format (rootPath, templateName)
+
   def uri(path: String) = UriBuilder.fromPath(path).build()
-
-  def errorPath(templateName: String) =
-    "/dev/example/eventsourcing/error/%s" format templateName
-
-  def homePath(templateName: String) =
-    "/dev/example/eventsourcing/home/%s" format templateName
 }

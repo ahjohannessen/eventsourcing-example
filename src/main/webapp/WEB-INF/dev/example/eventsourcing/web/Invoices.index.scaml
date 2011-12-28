@@ -1,0 +1,17 @@
+-@ import val it: InvoicesInfo
+
+%h1 Invoices
+
+%table
+  %tr
+    %th Invoice
+    %th Status
+    %th Version
+  - for (invoice <- invoices)
+    %tr
+      %td
+        %a{ :href => { "invoice/%s" format invoice.id } } Invoice #{invoice.id}
+      %td
+        = status(invoice)
+      %td
+        = invoice.version
