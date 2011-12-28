@@ -19,10 +19,11 @@ object Resolvers {
 }
 
 object Versions {
-  val Akka = "1.2"
+  val Akka   = "1.2"
   val Jersey = "1.9.1"
-  val Jetty = "8.0.4.v20111024"
-  val Netty = "3.2.5.Final"
+  val Jetty  = "8.0.4.v20111024"
+  val Netty  = "3.2.5.Final"
+  val Spring = "3.1.0.RELEASE"
 }
 
 object Dependencies {
@@ -36,9 +37,11 @@ object Dependencies {
   lazy val jerseyCore   = "com.sun.jersey"             % "jersey-core"       % Jersey  % "compile"
   lazy val jerseyJson   = "com.sun.jersey"             % "jersey-json"       % Jersey  % "compile"
   lazy val jerseyServer = "com.sun.jersey"             % "jersey-server"     % Jersey  % "compile"
+  lazy val jerseySpring = "com.sun.jersey.contribs"    % "jersey-spring"     % Jersey  % "compile"
   lazy val netty        = "org.jboss.netty"            % "netty"             % Netty   % "compile"
   lazy val scalate      = "org.fusesource.scalate"     % "scalate-core"      % "1.5.2" % "compile"
   lazy val scalaz       = "org.scalaz"                 % "scalaz-core_2.9.1" % "6.0.3" % "compile"
+  lazy val springWeb    = "org.springframework"        % "spring-web"        % Spring  % "compile"
   lazy val zookeeper    = "org.apache.zookeeper"       % "zookeeper"         % "3.3.3" % "compile"
 
   // container dependencies TODO: switch from "compile" to "container" when using xsbt-web-plugin
@@ -66,7 +69,7 @@ object ExampleBuild extends Build {
       // compile dependencies (backend)
       libraryDependencies ++= Seq (akkaActor, akkaStm, journalio, netty, scalaz, zookeeper),
       // compile dependencies (frontend)
-      libraryDependencies ++= Seq (jsr311, jerseyCore, jerseyJson, jerseyServer, scalate),
+      libraryDependencies ++= Seq (jsr311, jerseyCore, jerseyJson, jerseyServer, jerseySpring, springWeb, scalate),
       // container dependencies
       libraryDependencies ++= Seq (jettyServer, jettyServlet, jettyWebapp),
       // runtime dependencies

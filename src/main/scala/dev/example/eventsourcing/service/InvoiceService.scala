@@ -18,7 +18,7 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
 
   def getDraftInvoices = getInvoices.filter(_.isInstanceOf[DraftInvoice])
   def getSentInvoices = getInvoices.filter(_.isInstanceOf[SentInvoice])
-  def getPaidInvoices = getInvoices.filter(_.isInstanceOf[SentInvoice])
+  def getPaidInvoices = getInvoices.filter(_.isInstanceOf[PaidInvoice])
 
   //
   // Updates

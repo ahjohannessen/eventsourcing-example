@@ -1,1 +1,9 @@
+DraftInvoice
+SentInvoice
+PaidInvoice
+
 Invoice
+InvoiceItem
+InvoiceAddress
+
+Adapter$Invoices

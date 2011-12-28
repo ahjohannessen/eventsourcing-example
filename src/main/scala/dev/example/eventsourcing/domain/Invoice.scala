@@ -1,15 +1,32 @@
 package dev.example.eventsourcing.domain
 
-import dev.example.eventsourcing.event.Event
+import javax.xml.bind.annotation._
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
 
-sealed trait Invoice extends Aggregate[Invoice] with Handler[InvoiceEvent, Invoice] {
+import dev.example.eventsourcing.event.Event
+import dev.example.eventsourcing.util.Binding._
+
+import Adapter._
+
+@XmlType(propOrder = Array("total", "sum"))
+@XmlAccessorType(XmlAccessType.PROPERTY)
+sealed abstract class Invoice extends Aggregate[Invoice] with Handler[InvoiceEvent, Invoice] {
   def items: List[InvoiceItem]
   def discount: BigDecimal
 
   def total: BigDecimal = sum - discount
+
   def sum: BigDecimal = items.foldLeft(BigDecimal(0)) {
     (sum, item) => sum + item.amount * item.count
   }
+
+  @XmlElement
+  @XmlJavaTypeAdapter(classOf[BigDecimalAdapter])
+  def getTotal = total
+
+  @XmlElement
+  @XmlJavaTypeAdapter(classOf[BigDecimalAdapter])
+  def getSum = sum
 }
 
 object Invoice extends Handler[InvoiceEvent, Invoice] {
@@ -27,12 +44,16 @@ object Invoice extends Handler[InvoiceEvent, Invoice] {
   }
 }
 
+@XmlRootElement(name = "draft-invoice")
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(propOrder = Array("discount", "items"))
 case class DraftInvoice(
-    id: String,
-    version: Long = 0,
-    items: List[InvoiceItem] = Nil,
-    discount: BigDecimal = 0)
+    @xmlAttribute(required = true) id: String,
+    @xmlAttribute(required = false) version: Long = 0,
+    @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
+    @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0)
   extends Invoice {
+  private def this() = this(id = null) // needed by JAXB
 
   def addItem(item: InvoiceItem): Update[InvoiceEvent, DraftInvoice] =
     update(InvoiceItemAdded(id, item), transitionToDraft)
@@ -58,13 +79,17 @@ case class DraftInvoice(
   }
 }
 
+@XmlRootElement(name = "sent-invoice")
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(propOrder = Array("discount", "items", "address"))
 case class SentInvoice(
-    id: String,
-    version: Long = 0,
-    items: List[InvoiceItem] = Nil,
-    discount: BigDecimal = 0,
-    address: InvoiceAddress)
+    @xmlAttribute(required = true) id: String,
+    @xmlAttribute(required = false) version: Long = 0,
+    @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
+    @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0,
+    @xmlElement(required = true) address: InvoiceAddress)
   extends Invoice {
+  private def this() = this(id = null, address = null) // needed by JAXB
 
   def pay(amount: BigDecimal): Update[InvoiceEvent, PaidInvoice] =
     if (amount < total) Update.reject(DomainError("paid amount less than total amount"))
@@ -78,20 +103,39 @@ case class SentInvoice(
   }
 }
 
+@XmlRootElement(name = "paid-invoice")
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(propOrder = Array("discount", "items", "address"))
 case class PaidInvoice(
-    id: String,
-    version: Long = 0,
-    items: List[InvoiceItem] = Nil,
-    discount: BigDecimal = 0,
-    address: InvoiceAddress)
+    @xmlAttribute(required = true) id: String,
+    @xmlAttribute(required = false) version: Long = 0,
+    @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
+    @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0,
+    @xmlElement(required = true) address: InvoiceAddress)
   extends Invoice {
+  private def this() = this(id = null, address = null) // needed by JAXB
 
   def paid = true
   def handle = throw new MatchError
 }
 
-case class InvoiceItem(description: String, count: Int, amount: BigDecimal)
-case class InvoiceAddress(street: String, city: String, country: String)
+@XmlElement
+@XmlAccessorType(XmlAccessType.FIELD)
+case class InvoiceItem(
+  @xmlElement(required = true) description: String,
+  @xmlElement(required = true) count: Int,
+  @xmlElement(required = true) @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) amount: BigDecimal) {
+  private def this() = this(null, 0, 0)
+}
+
+@XmlElement
+@XmlAccessorType(XmlAccessType.FIELD)
+case class InvoiceAddress(
+  @xmlElement(required = true) street: String,
+  @xmlElement(required = true) city: String,
+  @xmlElement(required = true) country: String) {
+  private def this() = this(null, null, null)
+}
 
 sealed trait InvoiceEvent extends Event {
   def invoiceId: String
@@ -102,3 +146,4 @@ case class InvoiceItemAdded(invoiceId: String, item: InvoiceItem) extends Invoic
 case class InvoiceDiscountSet(invoiceId: String, discount: BigDecimal) extends InvoiceEvent
 case class InvoiceSent(invoiceId: String, invoice: Invoice, to: InvoiceAddress) extends InvoiceEvent
 case class InvoicePaid(invoiceId: String) extends InvoiceEvent
+
