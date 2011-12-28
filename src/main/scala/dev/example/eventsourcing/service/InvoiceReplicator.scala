@@ -7,7 +7,7 @@ import dev.example.eventsourcing.state.EventProjection
 class InvoiceReplicator extends EventProjection[Map[String, Invoice]] {
   val initialState = Map.empty[String, Invoice]
 
-  def projectionLogic = {
+  def project = {
     case (state, e: InvoiceCreated) => state + (e.invoiceId -> Invoice.handle(e))
     case (state, e: InvoiceEvent)   => state + (e.invoiceId -> state(e.invoiceId).handle(e))
   }

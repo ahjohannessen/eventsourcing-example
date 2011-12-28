@@ -14,7 +14,7 @@ trait Projection[S, A] {
   def initialState: S
   def currentState: S
 
-  def projectionLogic: PartialFunction[(S, A), S]
+  def project: PartialFunction[(S, A), S]
 }
 
 trait UpdateProjection[S, A] extends Projection[S, A] {
@@ -52,7 +52,7 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
         update() match {
           case (events, s @ Success(result)) => {
             log(events.reverse) // TODO: handle errors
-            ref set projectionLogic(current, result.asInstanceOf[A])
+            ref set project(current, result.asInstanceOf[A])
             p.completeWithResult(s)
           }
           case (_, f) => {
@@ -77,10 +77,10 @@ trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[Eve
 
   def receive(entry: EventLogEntry) = update(entry)
 
-  def handles(event: Event) = projectionLogic.isDefinedAt((null.asInstanceOf[S], event))
+  def handles(event: Event) = project.isDefinedAt((null.asInstanceOf[S], event))
 
   def update(entry: EventLogEntry) = if (handles(entry.event)) agent send { snapshot =>
-    Snapshot(entry.logId, entry.logEntryId, projectionLogic(snapshot.state, entry.event))
+    Snapshot(entry.logId, entry.logEntryId, project(snapshot.state, entry.event))
   }
 
   def replay(eventLog: EventLog) = currentSnapshot match {

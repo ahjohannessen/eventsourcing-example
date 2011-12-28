@@ -70,7 +70,7 @@ trait InvoiceService extends UpdateProjection[Map[String, Invoice], Invoice] {
   // Projection
   //
 
-  def projectionLogic = {
+  def project = {
     case (state, updated) => state + (updated.id -> updated)
   }
 }
