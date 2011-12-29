@@ -2,3 +2,90 @@
 
 %h1 Draft Invoice
 
+- for (errors <- errorsOption)
+  %h2 Errors
+  %table
+    - for (error <- errors)
+      %tr
+        %td = error
+
+- for { invoice <- invoiceOption }
+  %h2 Invoice Details
+
+  %table
+    %tr
+      %td Id:
+      %td = invoice.id
+    %tr
+      %td Version:
+      %td = invoice.version
+    %tr
+      %td Sum:
+      %td = invoice.sum
+    %tr
+      %td Discount:
+      %td = invoice.discount
+
+
+  %h3 Items
+
+  %table
+    %tr
+      %th Description
+      %th Count
+      %th Amount
+    - for { item <- invoice.items }
+      %tr
+        %td = item.description
+        %td = item.count
+        %td = item.amount
+
+  %h3 Add Item
+
+  %form{ :action => { "/invoice/%s" format invoice.id }, :method => "post" }
+    %table
+      %tr
+        %td Description
+        %td
+          %input{ :type => "text", :value => { uncommitted("description") }, :name => "description" }
+      %tr
+        %td Count
+        %td
+          %input{ :type => "text", :value => { uncommitted("count") }, :name => "count" }
+      %tr
+        %td Amount
+        %td
+          %input{ :type => "text", :value => { uncommitted("amount") }, :name => "amount" }
+      %tr
+        %td
+        %td
+          %input{ :type => "hidden", :value => { invoice.version }, :name => "version" }
+      %tr
+        %td
+        %td
+          %input{ :type => "submit", :value => "Add" }
+
+  %h3 Send Invoice
+
+  %form{ :action => { "/invoice/%s" format invoice.id }, :method => "post" }
+    %table
+      %tr
+        %td Street
+        %td
+          %input{ :type => "text", :value => { uncommitted("street") }, :name => "street" }
+      %tr
+        %td City
+        %td
+          %input{ :type => "text", :value => { uncommitted("city") }, :name => "city" }
+      %tr
+        %td Country
+        %td
+          %input{ :type => "text", :value => { uncommitted("country") }, :name => "country" }
+      %tr
+        %td
+        %td
+          %input{ :type => "hidden", :value => { invoice.version }, :name => "version" }
+      %tr
+        %td
+        %td
+          %input{ :type => "submit", :value => "Send" }

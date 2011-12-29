@@ -4,6 +4,8 @@ import javax.ws.rs.core.Response.Status._
 import javax.ws.rs.core.UriBuilder
 import javax.xml.bind.annotation._
 
+import com.sun.jersey.api.representation.Form
+
 import dev.example.eventsourcing.domain.DomainError
 
 package object web {
@@ -34,4 +36,13 @@ package object web {
   def webPath(templateName: String) = "%s/web/%s" format (rootPath, templateName)
 
   def uri(path: String) = UriBuilder.fromPath(path).build()
+
+  class RichForm(form: Form) {
+    import scala.collection.JavaConverters._
+
+    def toMap: Map[String, String] =
+      form.asScala.foldLeft(Map.empty[String, String]) { (m, kv) => m + (kv._1 -> kv._2.get(0)) }
+  }
+
+  implicit def form2RichForm(form: Form) = new RichForm(form)
 }
