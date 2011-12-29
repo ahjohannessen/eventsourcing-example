@@ -102,13 +102,15 @@ case class InvoiceInfo[A <: Invoice](
   errorsOption:  Option[DomainError] = None,
   formOption:    Option[Map[String, String]] = None) {
 
-  def uncommitted(key: String) =
-    formOption.map(_.get(key).getOrElse("")).getOrElse("")
+  def uncommitted(key: String) = formOption.map(_.get(key)) match {
+    case Some(Some(value)) => value
+    case _                 => ""
+  }
 }
 
 private[web] class InvoiceItemForm(val data: Map[String, String]) {
   def toInvoiceItem: DomainValidation[InvoiceItem] =
-    (description ⊛ count ⊛ amount) {(d, c, a) => InvoiceItem(d, c, a)}
+    (description ⊛ count ⊛ amount) (InvoiceItem.apply)
 
   private def description: DomainValidation[String] = data("description") match {
     case "" => Failure(DomainError("description must not be empty"))
@@ -126,8 +128,8 @@ private[web] class InvoiceItemForm(val data: Map[String, String]) {
 
   private def amount: DomainValidation[BigDecimal] = data("amount") match {
     case "" => Failure(DomainError("amount must not be empty"))
-    case c  => try {
-      Success(BigDecimal(c))
+    case a  => try {
+      Success(BigDecimal(a))
     } catch {
       case e => Failure(DomainError("amount must be a number"))
     }
@@ -136,20 +138,20 @@ private[web] class InvoiceItemForm(val data: Map[String, String]) {
 
 private[web] class InvoiceAddressForm(val data: Map[String, String]) {
   def toInvoiceAddress: DomainValidation[InvoiceAddress] =
-    (street ⊛ city ⊛ country) {(s, ci, co) => InvoiceAddress(s, ci, co)}
+    (street ⊛ city ⊛ country) (InvoiceAddress.apply)
 
   private def street: DomainValidation[String] = data("street") match {
     case "" => Failure(DomainError("street must not be empty"))
-    case d  => Success(d)
+    case s  => Success(s)
   }
 
   private def city: DomainValidation[String] = data("city") match {
     case "" => Failure(DomainError("city must not be empty"))
-    case d  => Success(d)
+    case c  => Success(c)
   }
 
   private def country: DomainValidation[String] = data("country") match {
     case "" => Failure(DomainError("country must not be empty"))
-    case d  => Success(d)
+    case c  => Success(c)
   }
 }
