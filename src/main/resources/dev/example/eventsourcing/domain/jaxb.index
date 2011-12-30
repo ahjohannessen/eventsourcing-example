@@ -4,6 +4,7 @@ PaidInvoice
 
 Invoice
 InvoiceItem
+InvoiceItemVersioned
 InvoiceAddress
 
 Adapter$Invoices

@@ -40,7 +40,7 @@ object Invoice extends Handler[InvoiceEvent, Invoice] {
     events.drop(1).foldLeft(handle(events(0))) { (invoice, event) => invoice.handle(event) }
 
   private def transitionToDraft: PartialFunction[InvoiceEvent, DraftInvoice] = {
-    case InvoiceCreated(id) => DraftInvoice(id)
+    case InvoiceCreated(id) => DraftInvoice(id, 0)
   }
 }
 
@@ -49,7 +49,7 @@ object Invoice extends Handler[InvoiceEvent, Invoice] {
 @XmlType(propOrder = Array("discount", "items"))
 case class DraftInvoice(
     @xmlAttribute(required = true) id: String,
-    @xmlAttribute(required = false) version: Long = 0,
+    @xmlAttribute(required = false) version: Long = -1,
     @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
     @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0)
   extends Invoice {
@@ -84,7 +84,7 @@ case class DraftInvoice(
 @XmlType(propOrder = Array("discount", "items", "address"))
 case class SentInvoice(
     @xmlAttribute(required = true) id: String,
-    @xmlAttribute(required = false) version: Long = 0,
+    @xmlAttribute(required = false) version: Long = -1,
     @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
     @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0,
     @xmlElement(required = true) address: InvoiceAddress)
@@ -108,7 +108,7 @@ case class SentInvoice(
 @XmlType(propOrder = Array("discount", "items", "address"))
 case class PaidInvoice(
     @xmlAttribute(required = true) id: String,
-    @xmlAttribute(required = false) version: Long = 0,
+    @xmlAttribute(required = false) version: Long = -1,
     @xmlJavaTypeAdapter(classOf[InvoiceItemsAdapter]) items: List[InvoiceItem] = Nil,
     @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) discount: BigDecimal = 0,
     @xmlElement(required = true) address: InvoiceAddress)
@@ -126,6 +126,22 @@ case class InvoiceItem(
   @xmlElement(required = true) count: Int,
   @xmlElement(required = true) @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) amount: BigDecimal) {
   private def this() = this(null, 0, 0)
+}
+
+/**
+ * Needed to support conditional updates via XML/JSON Web API,
+ */
+@XmlRootElement(name = "item")
+@XmlAccessorType(XmlAccessType.FIELD)
+case class InvoiceItemVersioned(
+  @xmlElement(required = true) description: String,
+  @xmlElement(required = true) count: Int,
+  @xmlElement(required = true) @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) amount: BigDecimal,
+  @xmlAttribute(required = false) invoiceVersion: Long = -1) {
+  private def this() = this(null, 0, 0)
+
+  def toInvoiceItem = InvoiceItem(description, count, amount)
+  def invoiceVersionOption = if(invoiceVersion == -1L) None else Some(invoiceVersion)
 }
 
 @XmlElement

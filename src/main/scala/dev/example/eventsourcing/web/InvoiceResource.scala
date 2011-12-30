@@ -53,9 +53,29 @@ class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
       validation match {
         case Success(si) => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(si)))
         case Failure(er) => service.getInvoice(invoice.id) match {
-          case None            => new Viewable(errorPath("404")) // concurrent deletion
-          case Some(refreshed) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(addressForm.data)))
+          case None            => { // concurrent deletion
+            val entity = new Viewable(errorPath("404"))
+            Response.status(NOT_FOUND).entity(entity).build()
+          }
+          case Some(refreshed) => {
+            val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(addressForm.data)))
+            Response.status(CONFLICT).entity(entity).build()
+          }
         }
+      }
+    }
+  }
+
+  @PUT
+  @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  def updateInvoiceFromXmlJson(sentInvoice: SentInvoice) = invoiceOption match {
+    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+    case Some(invoice) => service.sendInvoiceTo(invoice.id, sentInvoice.versionOption, sentInvoice.address).get match {
+      case Success(si) => Response.ok(si).build()
+      case Failure(er) => service.getInvoice(invoice.id) match {
+        case None            => Response.status(NOT_FOUND).entity(SysError.NotFound).build() // concurrent deletion
+        case Some(refreshed) => Response.status(CONFLICT).entity(AppError(er)).build()
       }
     }
   }
@@ -95,11 +115,34 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
         updated <- service.addInvoiceItem(invoice.id, Some(itemForm.data("version").toLong), item).get
       } yield updated
       validation match {
-        case Success(si) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(si)))
-        case Failure(er) => service.getInvoice(invoice.id) match {
-          case None            => new Viewable(errorPath("404")) // concurrent deletion
-          case Some(refreshed) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(itemForm.data)))
+        case Success(di) => {
+          val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(di)))
+          Response.created(uri("/invoice/%s/item/%s" format (di.id, di.items.length - 1))).entity(entity).build()
         }
+        case Failure(er) => service.getInvoice(invoice.id) match {
+          case None  => {  // concurrent deletion
+            val entity = new Viewable(errorPath("404"))
+            Response.status(NOT_FOUND).entity(entity).build()
+          }
+          case Some(refreshed) => {
+            val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(itemForm.data)))
+            Response.status(CONFLICT).entity(entity).build()
+          }
+        }
+      }
+    }
+  }
+
+  @POST
+  @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  def updateInvoiceItemsFromXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
+    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+    case Some(invoice) => service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem).get match {
+      case Success(di) => Response.created(uri("/invoice/%s/item/%s" format (di.id, di.items.length - 1))).entity(itemv.toInvoiceItem).build()
+      case Failure(er) => service.getInvoice(invoice.id) match {
+        case None            => Response.status(NOT_FOUND).entity(SysError.NotFound).build() // concurrent deletion
+        case Some(refreshed) => Response.status(CONFLICT).entity(AppError(er)).build()
       }
     }
   }
@@ -160,6 +203,13 @@ case class InvoiceInfo[A <: Invoice](
   def uncommitted(key: String) = formOption.map(_.get(key)) match {
     case Some(Some(value)) => value
     case _                 => ""
+  }
+}
+
+private[web] class InvoiceIdForm(val data: Map[String, String]) {
+  def toInvoiceId: DomainValidation[String] = data("id") match {
+    case "" => Failure(DomainError("id must not be empty"))
+    case id => Success(id)
   }
 }
 

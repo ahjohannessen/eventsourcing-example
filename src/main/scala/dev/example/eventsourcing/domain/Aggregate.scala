@@ -6,6 +6,8 @@ trait Aggregate[+A] {
   def id: String
   def version: Long
 
+  def versionOption = if (version == -1L) None else Some(version)
+
   def require(expectedVersion: Option[Long]) = {
     expectedVersion match {
       case Some(expected) if (version != expected) =>
