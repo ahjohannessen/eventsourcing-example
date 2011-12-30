@@ -17,7 +17,7 @@ import com.sun.jersey.api.view.Viewable
 import org.springframework.stereotype.Component
 
 import dev.example.eventsourcing.domain._
-import dev.example.eventsourcing.domain.Adapter.Invoices
+import dev.example.eventsourcing.domain.Adapter._
 import dev.example.eventsourcing.service.InvoiceService
 
 @Component
@@ -28,30 +28,42 @@ class InvoicesResource {
 
   @GET
   @Produces(Array(TEXT_HTML))
-  def encountersToHtml = new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices))
+  def invoicesToHtml = new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices))
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   def invoicesToXmlJson = new Invoices(service.getInvoices.toList.asJava)
 
   @Path("{id}")
-  def invoice(@PathParam("id") id: String) = new InvoiceResource(id, service)
+  def invoice(@PathParam("id") id: String) = new InvoiceResource(service.getInvoice(id), service)
 }
 
-class InvoiceResource(val invoiceId: String, service: InvoiceService) {
+class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
   @POST
   @Consumes(Array(APPLICATION_FORM_URLENCODED))
   @Produces(Array(TEXT_HTML))
-  def updateInvoiceFromHtml(form: Form) = {
-    val formData = form.toMap
-    if (formData.contains("description")) updateInvoiceFromInvoiceItemForm(new InvoiceItemForm(formData))
-    else                                  updateInvoiceFromInvoiceAddressForm(new InvoiceAddressForm(formData))
+  def updateInvoiceFromHtml(form: Form) = invoiceOption match {
+    case None          => new Viewable(errorPath("404"))
+    case Some(invoice) => {
+      val addressForm = new InvoiceAddressForm(form.toMap)
+      val validation = for {
+        address <- addressForm.toInvoiceAddress
+        updated <- service.sendInvoiceTo(invoice.id, Some(addressForm.data("version").toLong), address).get
+      } yield updated
+      validation match {
+        case Success(si) => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(si)))
+        case Failure(er) => service.getInvoice(invoice.id) match {
+          case None            => new Viewable(errorPath("404")) // concurrent deletion
+          case Some(refreshed) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(addressForm.data)))
+        }
+      }
+    }
   }
 
   @GET
   @Produces(Array(TEXT_HTML))
-  def encounterToHtml = service.getInvoice(invoiceId) match {
-    case None          => new Viewable(errorPath("404"), invoiceId)
+  def invoiceToHtml = invoiceOption match {
+    case None          => new Viewable(errorPath("404"))
     case Some(invoice) => invoice match {
       case di: DraftInvoice => new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(di)))
       case si: SentInvoice  => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(si)))
@@ -61,31 +73,74 @@ class InvoiceResource(val invoiceId: String, service: InvoiceService) {
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def invoiceToXmlJson = service.getInvoice(invoiceId) match {
+  def invoiceToXmlJson = invoiceOption match {
     case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
     case Some(invoice) => Response.ok(invoice).build()
   }
 
-  private def updateInvoiceFromInvoiceItemForm(form: InvoiceItemForm) = {
-    val validation = for {
-      invoiceItem <- form.toInvoiceItem
-      invoice     <- service.addInvoiceItem(invoiceId, Some(form.data("version").toLong), invoiceItem).get
-    } yield invoice
-    validation match {
-      case Success(di) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(di))) // alternative: redirect
-      case Failure(er) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoiceId), Some(er), Some(form.data)))
+  @Path("item")
+  def items = new InvoiceItemsResource(invoiceOption, service, this)
+}
+
+class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceService, parent: InvoiceResource) {
+  @POST
+  @Consumes(Array(APPLICATION_FORM_URLENCODED))
+  @Produces(Array(TEXT_HTML))
+  def updateInvoiceItemsFromHtml(form: Form) = invoiceOption match {
+    case None          => new Viewable(errorPath("404"))
+    case Some(invoice) => {
+      val itemForm = new InvoiceItemForm(form.toMap)
+      val validation = for {
+        item    <- itemForm.toInvoiceItem
+        updated <- service.addInvoiceItem(invoice.id, Some(itemForm.data("version").toLong), item).get
+      } yield updated
+      validation match {
+        case Success(si) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(si)))
+        case Failure(er) => service.getInvoice(invoice.id) match {
+          case None            => new Viewable(errorPath("404")) // concurrent deletion
+          case Some(refreshed) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(itemForm.data)))
+        }
+      }
     }
   }
 
-  private def updateInvoiceFromInvoiceAddressForm(form: InvoiceAddressForm) = {
-    val validation = for {
-      invoiceAddress <- form.toInvoiceAddress
-      invoice        <- service.sendInvoiceTo(invoiceId, Some(form.data("version").toLong), invoiceAddress).get
-    } yield invoice
-    validation match {
-      case Success(di) => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(di))) // alternative: redirect
-      case Failure(er) => new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoiceId), Some(er), Some(form.data)))
-    }
+  @GET
+  @Produces(Array(TEXT_HTML))
+  def invoiceItemsToHtml = parent.invoiceToHtml
+
+  @GET
+  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  def invoiceItemsToXmlJson = invoiceOption match {
+    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+    case Some(invoice) => new InvoiceItems(invoice.items.asJava)
+  }
+
+  @Path("{index}")
+  def invoice(@PathParam("index") index: Int) = {
+    val invoiceItemOption = for {
+      invoice     <- invoiceOption
+      invoiceItem <- item(invoice, index)
+    } yield invoiceItem
+    new InvoiceItemResource(invoiceOption, invoiceItemOption, service, this)
+  }
+
+  def item(invoice: Invoice, index: Int): Option[InvoiceItem] =
+    if (index < invoice.items.length) Some(invoice.items(index)) else None
+}
+
+class InvoiceItemResource(invoiceOption: Option[Invoice], invoiceItemOption: Option[InvoiceItem], service: InvoiceService, parent: InvoiceItemsResource) {
+  @GET
+  @Produces(Array(TEXT_HTML))
+  def invoiceToHtml = invoiceItemOption match {
+    case None    => new Viewable(errorPath("404"))
+    case Some(_) => parent.invoiceItemsToHtml
+  }
+
+  @GET
+  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  def invoiceToXmlJson = invoiceItemOption match {
+    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+    case Some(invoice) => Response.ok(invoice).build()
   }
 }
 

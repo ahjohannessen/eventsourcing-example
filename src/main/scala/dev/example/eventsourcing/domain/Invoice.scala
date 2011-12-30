@@ -119,7 +119,7 @@ case class PaidInvoice(
   def handle = throw new MatchError
 }
 
-@XmlElement
+@XmlRootElement(name = "item")
 @XmlAccessorType(XmlAccessType.FIELD)
 case class InvoiceItem(
   @xmlElement(required = true) description: String,

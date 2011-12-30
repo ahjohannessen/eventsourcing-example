@@ -42,7 +42,7 @@
 
   %h3 Add Item
 
-  %form{ :action => { "/invoice/%s" format invoice.id }, :method => "post" }
+  %form{ :action => { "/invoice/%s/item" format invoice.id }, :method => "post" }
     %table
       %tr
         %td Description

@@ -10,12 +10,13 @@ object Adapter {
     def create(l: JList[InvoiceItem]) = new InvoiceItems(l)
   }
 
+  @XmlRootElement(name = "items")
   @XmlAccessorType(XmlAccessType.FIELD)
-  case class InvoiceItems(@xmlElement(name = "item") elem: JList[InvoiceItem]) extends AbstractList[InvoiceItem] {
+  case class InvoiceItems(@xmlElementRef(name = "items") elem: JList[InvoiceItem]) extends AbstractList[InvoiceItem] {
     private def this() = this(null)
   }
 
-  @XmlRootElement
+  @XmlRootElement(name = "invoices")
   @XmlAccessorType(XmlAccessType.FIELD)
   case class Invoices(@xmlElementRef(name = "invoices") elem: JList[Invoice]) extends AbstractList[Invoice] {
     private def this() = this(null)
