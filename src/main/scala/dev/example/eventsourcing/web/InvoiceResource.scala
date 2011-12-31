@@ -3,10 +3,6 @@ package dev.example.eventsourcing.web
 import javax.annotation.Resource
 import javax.ws.rs._
 import javax.ws.rs.core.MediaType._
-import javax.ws.rs.core.Response
-import javax.ws.rs.core.Response.Status._
-
-import scala.collection.JavaConverters._
 
 import scalaz._
 import Scalaz._
@@ -20,47 +16,78 @@ import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.domain.Adapter._
 import dev.example.eventsourcing.service.InvoiceService
 
+// ----------------------------------------------------
+//  Invoice resources (HTML/XML/JSON web interface)
+// ----------------------------------------------------
+
 @Component
 @Path("/invoice")
 class InvoicesResource {
   @Resource
   var service: InvoiceService = _
 
+  @POST
+  @Consumes(Array(APPLICATION_FORM_URLENCODED))
+  @Produces(Array(TEXT_HTML))
+  def createInvoiceHtml(form: Form) = {
+    val idForm = new InvoiceIdForm(form.toMap)
+    val validation = for {
+      invoiceId <- idForm.toInvoiceId
+      invoice   <- service.createInvoice(invoiceId).get
+    } yield invoice
+    validation match {
+      case Success(di) =>
+        sc201(new Viewable(webPath("Invoice.draft"), InvoiceInfo(di)), invoicePath(di))
+      case Failure(err) =>
+        sc409(new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices, err, idForm)))
+    }
+  }
+
+  @POST
+  @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
+  def createInvoiceXmlJson(invoice: DraftInvoice) = service.createInvoice(invoice.id).get match {
+    case Success(di)  => sc201(di, invoicePath(di))
+    case Failure(err) => sc409(AppError(err))
+  }
+
   @GET
   @Produces(Array(TEXT_HTML))
-  def invoicesToHtml = new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices))
+  def invoicesHtml =
+    sc200(new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices)))
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def invoicesToXmlJson = new Invoices(service.getInvoices.toList.asJava)
+  def invoicesXmlJson =
+    sc200(Invoices(service.getInvoices))
 
   @Path("{id}")
-  def invoice(@PathParam("id") id: String) = new InvoiceResource(service.getInvoice(id), service)
+  def invoice(@PathParam("id") id: String) =
+    new InvoiceResource(service.getInvoice(id), service)
+
+  private def invoicePath(invoice: Invoice) =
+    "/invoice/%s" format invoice.id
 }
 
 class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
   @POST
   @Consumes(Array(APPLICATION_FORM_URLENCODED))
   @Produces(Array(TEXT_HTML))
-  def updateInvoiceFromHtml(form: Form) = invoiceOption match {
-    case None          => new Viewable(errorPath("404"))
+  def sendInvoiceHtml(form: Form) = invoiceOption match {
+    case None          => sc404(new Viewable(errorPath("404")))
     case Some(invoice) => {
       val addressForm = new InvoiceAddressForm(form.toMap)
       val validation = for {
         address <- addressForm.toInvoiceAddress
-        updated <- service.sendInvoiceTo(invoice.id, Some(addressForm.data("version").toLong), address).get
+        updated <- service.sendInvoiceTo(invoice.id, addressForm.versionOption, address).get
       } yield updated
       validation match {
-        case Success(si) => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(si)))
-        case Failure(er) => service.getInvoice(invoice.id) match {
-          case None            => { // concurrent deletion
-            val entity = new Viewable(errorPath("404"))
-            Response.status(NOT_FOUND).entity(entity).build()
-          }
-          case Some(refreshed) => {
-            val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(addressForm.data)))
-            Response.status(CONFLICT).entity(entity).build()
-          }
+        case Success(si)  => sc200(new Viewable(webPath("Invoice.sent"), InvoiceInfo(si)))
+        case Failure(err) => service.getInvoice(invoice.id) match {
+          case None =>
+            sc404(new Viewable(errorPath("404")))
+          case Some(refreshed) =>
+            sc409(new Viewable(webPath("Invoice.draft"), InvoiceInfo(refreshed, err, addressForm)))
         }
       }
     }
@@ -69,33 +96,33 @@ class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
   @PUT
   @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def updateInvoiceFromXmlJson(sentInvoice: SentInvoice) = invoiceOption match {
-    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+  def sendInvoiceXmlJson(sentInvoice: SentInvoice) = invoiceOption match {
+    case None          => sc404(SysError.NotFound)
     case Some(invoice) => service.sendInvoiceTo(invoice.id, sentInvoice.versionOption, sentInvoice.address).get match {
-      case Success(si) => Response.ok(si).build()
-      case Failure(er) => service.getInvoice(invoice.id) match {
-        case None            => Response.status(NOT_FOUND).entity(SysError.NotFound).build() // concurrent deletion
-        case Some(refreshed) => Response.status(CONFLICT).entity(AppError(er)).build()
+      case Success(si)  => sc200(si)
+      case Failure(err) => service.getInvoice(invoice.id) match {
+        case None            => sc404(SysError.NotFound)
+        case Some(refreshed) => sc409(AppError(err))
       }
     }
   }
 
   @GET
   @Produces(Array(TEXT_HTML))
-  def invoiceToHtml = invoiceOption match {
-    case None          => new Viewable(errorPath("404"))
+  def invoiceHtml = invoiceOption match {
+    case None          => sc404(new Viewable(errorPath("404")))
     case Some(invoice) => invoice match {
-      case di: DraftInvoice => new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(di)))
-      case si: SentInvoice  => new Viewable(webPath("Invoice.sent"), InvoiceInfo(Some(si)))
-      case pi: PaidInvoice  => new Viewable(webPath("Invoice.paid"), InvoiceInfo(Some(pi)))
+      case di: DraftInvoice => sc200(new Viewable(webPath("Invoice.draft"), InvoiceInfo(di)))
+      case si: SentInvoice  => sc200(new Viewable(webPath("Invoice.sent"), InvoiceInfo(si)))
+      case pi: PaidInvoice  => sc200(new Viewable(webPath("Invoice.paid"), InvoiceInfo(pi)))
     }
   }
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def invoiceToXmlJson = invoiceOption match {
-    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
-    case Some(invoice) => Response.ok(invoice).build()
+  def invoiceXmlJson = invoiceOption match {
+    case None          => sc404(SysError.NotFound)
+    case Some(invoice) => sc200(invoice)
   }
 
   @Path("item")
@@ -106,28 +133,22 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
   @POST
   @Consumes(Array(APPLICATION_FORM_URLENCODED))
   @Produces(Array(TEXT_HTML))
-  def updateInvoiceItemsFromHtml(form: Form) = invoiceOption match {
-    case None          => new Viewable(errorPath("404"))
+  def addInvoiceItemHtml(form: Form) = invoiceOption match {
+    case None          => sc404(new Viewable(errorPath("404")))
     case Some(invoice) => {
       val itemForm = new InvoiceItemForm(form.toMap)
       val validation = for {
         item    <- itemForm.toInvoiceItem
-        updated <- service.addInvoiceItem(invoice.id, Some(itemForm.data("version").toLong), item).get
+        updated <- service.addInvoiceItem(invoice.id, itemForm.versionOption, item).get
       } yield updated
       validation match {
-        case Success(di) => {
-          val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(Some(di)))
-          Response.created(uri("/invoice/%s/item/%s" format (di.id, di.items.length - 1))).entity(entity).build()
-        }
-        case Failure(er) => service.getInvoice(invoice.id) match {
-          case None  => {  // concurrent deletion
-            val entity = new Viewable(errorPath("404"))
-            Response.status(NOT_FOUND).entity(entity).build()
-          }
-          case Some(refreshed) => {
-            val entity = new Viewable(webPath("Invoice.draft"), InvoiceInfo(service.getInvoice(invoice.id), Some(er), Some(itemForm.data)))
-            Response.status(CONFLICT).entity(entity).build()
-          }
+        case Success(di) =>
+          sc201(new Viewable(webPath("Invoice.draft"), InvoiceInfo(di)), lastItemPath(di))
+        case Failure(err) => service.getInvoice(invoice.id) match {
+          case None =>
+            sc404(new Viewable(errorPath("404")))
+          case Some(refreshed) =>
+            sc409(new Viewable(webPath("Invoice.draft"), InvoiceInfo(refreshed, err, itemForm)))
         }
       }
     }
@@ -136,26 +157,26 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
   @POST
   @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def updateInvoiceItemsFromXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
-    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
+  def addInvoiceItemXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
+    case None          => sc404(SysError.NotFound)
     case Some(invoice) => service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem).get match {
-      case Success(di) => Response.created(uri("/invoice/%s/item/%s" format (di.id, di.items.length - 1))).entity(itemv.toInvoiceItem).build()
-      case Failure(er) => service.getInvoice(invoice.id) match {
-        case None            => Response.status(NOT_FOUND).entity(SysError.NotFound).build() // concurrent deletion
-        case Some(refreshed) => Response.status(CONFLICT).entity(AppError(er)).build()
+      case Success(di)  => sc201(itemv, lastItemPath(di))
+      case Failure(err) => service.getInvoice(invoice.id) match {
+        case None            => sc404(SysError.NotFound)
+        case Some(refreshed) => sc409(AppError(err))
       }
     }
   }
 
   @GET
   @Produces(Array(TEXT_HTML))
-  def invoiceItemsToHtml = parent.invoiceToHtml
+  def invoiceItemsHtml = parent.invoiceHtml
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def invoiceItemsToXmlJson = invoiceOption match {
-    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
-    case Some(invoice) => new InvoiceItems(invoice.items.asJava)
+  def invoiceItemsXmlJson = invoiceOption match {
+    case None          => sc404(SysError.NotFound)
+    case Some(invoice) => sc200(InvoiceItems(invoice.items))
   }
 
   @Path("{index}")
@@ -167,27 +188,46 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
     new InvoiceItemResource(invoiceOption, invoiceItemOption, service, this)
   }
 
-  def item(invoice: Invoice, index: Int): Option[InvoiceItem] =
+  private def item(invoice: Invoice, index: Int): Option[InvoiceItem] =
     if (index < invoice.items.length) Some(invoice.items(index)) else None
+
+  private def lastItemPath(invoice: Invoice): String =
+    "/invoice/%s/item/%s" format (invoice.id, invoice.items.length - 1)
 }
 
 class InvoiceItemResource(invoiceOption: Option[Invoice], invoiceItemOption: Option[InvoiceItem], service: InvoiceService, parent: InvoiceItemsResource) {
   @GET
   @Produces(Array(TEXT_HTML))
-  def invoiceToHtml = invoiceItemOption match {
-    case None    => new Viewable(errorPath("404"))
-    case Some(_) => parent.invoiceItemsToHtml
+  def invoiceHtml = invoiceItemOption match {
+    case None    => sc404(new Viewable(errorPath("404")))
+    case Some(_) => parent.invoiceItemsHtml
   }
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def invoiceToXmlJson = invoiceItemOption match {
-    case None          => Response.status(NOT_FOUND).entity(SysError.NotFound).build()
-    case Some(invoice) => Response.ok(invoice).build()
+  def invoiceXmlJson = invoiceItemOption match {
+    case None          => sc404(SysError.NotFound)
+    case Some(invoice) => sc200(invoice)
   }
 }
 
-case class InvoicesInfo(invoices: Iterable[Invoice]) {
+// ----------------------------------------------------
+//  Invoice infos (used by Scalate templates)
+// ----------------------------------------------------
+
+trait Info {
+  def formOption: Option[InvoiceForm]
+  def uncommitted(key: String) = formOption.map(_.get(key)) match {
+    case Some(Some(value)) => value
+    case _                 => ""
+  }
+}
+
+case class InvoicesInfo(
+  invoices: Iterable[Invoice],
+  errorsOption:  Option[DomainError] = None,
+  formOption:    Option[InvoiceForm] = None) extends Info {
+
   def status(invoice: Invoice) = invoice match {
     case _: DraftInvoice => "draft"
     case _: SentInvoice  => "sent"
@@ -195,25 +235,44 @@ case class InvoicesInfo(invoices: Iterable[Invoice]) {
   }
 }
 
-case class InvoiceInfo[A <: Invoice](
-  invoiceOption: Option[A],
-  errorsOption:  Option[DomainError] = None,
-  formOption:    Option[Map[String, String]] = None) {
-
-  def uncommitted(key: String) = formOption.map(_.get(key)) match {
-    case Some(Some(value)) => value
-    case _                 => ""
-  }
+object InvoicesInfo {
+  def apply(invoices: Iterable[Invoice], errors: DomainError, form: InvoiceForm): InvoicesInfo =
+    new InvoicesInfo(invoices, Some(errors), Some(form))
 }
 
-private[web] class InvoiceIdForm(val data: Map[String, String]) {
+case class InvoiceInfo[A](
+  invoiceOption: Option[A],
+  errorsOption:  Option[DomainError] = None,
+  formOption:    Option[InvoiceForm] = None) extends Info
+
+object InvoiceInfo {
+  def apply[A](invoice: A): InvoiceInfo[A] =
+    new InvoiceInfo(Some(invoice))
+
+  def apply[A](invoice: A, errors: DomainError, form: InvoiceForm): InvoiceInfo[A] =
+    new InvoiceInfo(Some(invoice), Some(errors), Some(form))
+}
+
+// ----------------------------------------------------
+//  Invoice forms (used for input validation)
+// ----------------------------------------------------
+
+private[web] trait InvoiceForm {
+  def data: Map[String, String]
+  def versionOption = get("version").map(_.toLong)
+
+  def apply(key: String) = data(key)
+  def get(key: String) = data.get(key)
+}
+
+private[web] class InvoiceIdForm(val data: Map[String, String]) extends InvoiceForm {
   def toInvoiceId: DomainValidation[String] = data("id") match {
     case "" => Failure(DomainError("id must not be empty"))
     case id => Success(id)
   }
 }
 
-private[web] class InvoiceItemForm(val data: Map[String, String]) {
+private[web] class InvoiceItemForm(val data: Map[String, String]) extends InvoiceForm {
   def toInvoiceItem: DomainValidation[InvoiceItem] =
     (description ⊛ count ⊛ amount) (InvoiceItem.apply)
 
@@ -241,7 +300,7 @@ private[web] class InvoiceItemForm(val data: Map[String, String]) {
   }
 }
 
-private[web] class InvoiceAddressForm(val data: Map[String, String]) {
+private[web] class InvoiceAddressForm(val data: Map[String, String]) extends InvoiceForm {
   def toInvoiceAddress: DomainValidation[InvoiceAddress] =
     (street ⊛ city ⊛ country) (InvoiceAddress.apply)
 
