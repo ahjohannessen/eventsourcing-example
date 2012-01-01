@@ -39,7 +39,7 @@ class InvoicesResource {
       case Success(di) =>
         sc201(new Viewable(webPath("Invoice.draft"), InvoiceInfo(di)), invoicePath(di))
       case Failure(err) =>
-        sc409(new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices, err, idForm)))
+        sc409(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices, err, idForm)))
     }
   }
 
@@ -54,7 +54,7 @@ class InvoicesResource {
   @GET
   @Produces(Array(TEXT_HTML))
   def invoicesHtml =
-    sc200(new Viewable(webPath("Invoices.index"), InvoicesInfo(service.getInvoices)))
+    sc200(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices)))
 
   @GET
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
@@ -240,16 +240,26 @@ object InvoicesInfo {
     new InvoicesInfo(invoices, Some(errors), Some(form))
 }
 
-case class InvoiceInfo[A](
-  invoiceOption: Option[A],
+case class InvoiceInfo(
+  invoiceOption: Option[Invoice],
   errorsOption:  Option[DomainError] = None,
-  formOption:    Option[InvoiceForm] = None) extends Info
+  formOption:    Option[InvoiceForm] = None) extends Info {
+
+  def draftInvoiceOption = concreteInvoiceOption[DraftInvoice]
+  def sentInvoiceOption = concreteInvoiceOption[SentInvoice]
+  def paidInvoiceOption = concreteInvoiceOption[PaidInvoice]
+
+  private def concreteInvoiceOption[A](implicit m: Manifest[A]): Option[A] = invoiceOption match {
+    case Some(invoice) if (m.erasure.isInstance(invoice)) => Some(invoice.asInstanceOf[A])
+    case _                                                => None
+  }
+}
 
 object InvoiceInfo {
-  def apply[A](invoice: A): InvoiceInfo[A] =
+  def apply(invoice: Invoice): InvoiceInfo =
     new InvoiceInfo(Some(invoice))
 
-  def apply[A](invoice: A, errors: DomainError, form: InvoiceForm): InvoiceInfo[A] =
+  def apply(invoice: Invoice, errors: DomainError, form: InvoiceForm): InvoiceInfo =
     new InvoiceInfo(Some(invoice), Some(errors), Some(form))
 }
 

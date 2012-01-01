@@ -1,0 +1,9 @@
+-@ import val errors: dev.example.eventsourcing.domain.DomainError
+
+%h2 Errors
+
+%table
+  - for (error <- errors)
+    %tr
+      %td = error
+

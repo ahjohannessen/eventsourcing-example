@@ -1,46 +1,14 @@
--@ import val it: InvoiceInfo[dev.example.eventsourcing.domain.DraftInvoice]
+-@ import val it: InvoiceInfo
 
 %h1 Draft Invoice
 
 - for (errors <- errorsOption)
-  %h2 Errors
-  %table
-    - for (error <- errors)
-      %tr
-        %td = error
+  - render(errorPath("Errors.scaml"), Map("errors" -> errors))
 
-- for { invoice <- invoiceOption }
-  %h2 Invoice Details
+- for { invoice <- draftInvoiceOption }
+  - render(webPath("Invoice.scaml"), Map("invoice" -> invoice))
 
-  %table
-    %tr
-      %td Id:
-      %td = invoice.id
-    %tr
-      %td Version:
-      %td = invoice.version
-    %tr
-      %td Sum:
-      %td = invoice.sum
-    %tr
-      %td Discount:
-      %td = invoice.discount
-
-
-  %h3 Items
-
-  %table
-    %tr
-      %th Description
-      %th Count
-      %th Amount
-    - for { item <- invoice.items }
-      %tr
-        %td = item.description
-        %td = item.count
-        %td = item.amount
-
-  %h3 Add Item
+  %h2 Add Item
 
   %form{ :action => { "/invoice/%s/item" format invoice.id }, :method => "post" }
     %table
@@ -65,7 +33,7 @@
         %td
           %input{ :type => "submit", :value => "Add" }
 
-  %h3 Send Invoice
+  %h2 Send Invoice
 
   %form{ :action => { "/invoice/%s" format invoice.id }, :method => "post" }
     %table

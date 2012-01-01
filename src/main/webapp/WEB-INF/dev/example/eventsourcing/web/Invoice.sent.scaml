@@ -1,4 +1,7 @@
--@ import val it: InvoiceInfo[dev.example.eventsourcing.domain.SentInvoice]
+-@ import val it: InvoiceInfo
 
 %h1 Sent Invoice
 
+- for { invoice <- sentInvoiceOption }
+  - render(webPath("Invoice.scaml"), Map("invoice" -> invoice))
+  - render(webPath("InvoiceAddress.scaml"), Map("address" -> invoice.address))
