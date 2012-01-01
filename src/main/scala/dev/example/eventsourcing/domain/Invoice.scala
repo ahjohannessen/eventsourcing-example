@@ -147,10 +147,11 @@ case class InvoiceItemVersioned(
 @XmlElement
 @XmlAccessorType(XmlAccessType.FIELD)
 case class InvoiceAddress(
+  @xmlElement(required = true) name: String,
   @xmlElement(required = true) street: String,
   @xmlElement(required = true) city: String,
   @xmlElement(required = true) country: String) {
-  private def this() = this(null, null, null)
+  private def this() = this(null, null, null, null)
 }
 
 sealed trait InvoiceEvent extends Event {

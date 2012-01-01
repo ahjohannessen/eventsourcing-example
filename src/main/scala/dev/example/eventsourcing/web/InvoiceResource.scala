@@ -228,6 +228,8 @@ case class InvoicesInfo(
   errorsOption:  Option[DomainError] = None,
   formOption:    Option[InvoiceForm] = None) extends Info {
 
+  def invoicesSorted = invoices.toList.sortWith { (a1, a2) => a1.id < a2.id }
+
   def status(invoice: Invoice) = invoice match {
     case _: DraftInvoice => "draft"
     case _: SentInvoice  => "sent"
@@ -312,7 +314,12 @@ private[web] class InvoiceItemForm(val data: Map[String, String]) extends Invoic
 
 private[web] class InvoiceAddressForm(val data: Map[String, String]) extends InvoiceForm {
   def toInvoiceAddress: DomainValidation[InvoiceAddress] =
-    (street ⊛ city ⊛ country) (InvoiceAddress.apply)
+    (name ⊛ street ⊛ city ⊛ country) (InvoiceAddress.apply)
+
+  private def name: DomainValidation[String] = data("name") match {
+    case "" => Failure(DomainError("name must not be empty"))
+    case s  => Success(s)
+  }
 
   private def street: DomainValidation[String] = data("street") match {
     case "" => Failure(DomainError("street must not be empty"))

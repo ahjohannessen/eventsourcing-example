@@ -38,6 +38,10 @@
   %form{ :action => { "/invoice/%s" format invoice.id }, :method => "post" }
     %table
       %tr
+        %td Name
+        %td
+          %input{ :type => "text", :value => { uncommitted("name") }, :name => "name" }
+      %tr
         %td Street
         %td
           %input{ :type => "text", :value => { uncommitted("street") }, :name => "street" }

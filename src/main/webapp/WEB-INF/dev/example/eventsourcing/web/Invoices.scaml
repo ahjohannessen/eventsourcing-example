@@ -16,7 +16,7 @@
     %th Invoice
     %th Status
     %th Version
-  - for (invoice <- invoices)
+  - for (invoice <- invoicesSorted)
     %tr
       %td
         %a{ :href => { "invoice/%s" format invoice.id } } Invoice #{invoice.id}
