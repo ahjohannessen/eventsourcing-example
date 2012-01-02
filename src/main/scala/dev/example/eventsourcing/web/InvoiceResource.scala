@@ -47,7 +47,7 @@ class InvoicesResource {
   @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   def createInvoiceXmlJson(invoice: DraftInvoice) = service.createInvoice(invoice.id).get match {
-    case Success(di)  => sc201(di, invoicePath(di))
+    case Success(di)  => sc201(Invoices(service.getInvoices), invoicePath(di))
     case Failure(err) => sc409(AppError(err))
   }
 
@@ -160,7 +160,7 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
   def addInvoiceItemXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
     case None          => sc404(SysError.NotFound)
     case Some(invoice) => service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem).get match {
-      case Success(di)  => sc201(itemv.copy(invoiceVersion = di.version), lastItemPath(di))
+      case Success(di)  => sc201(InvoiceItems(di.items), lastItemPath(di))
       case Failure(err) => service.getInvoice(invoice.id) match {
         case None            => sc404(SysError.NotFound)
         case Some(refreshed) => sc409(AppError(err))
