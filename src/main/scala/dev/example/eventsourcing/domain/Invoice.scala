@@ -137,7 +137,7 @@ case class InvoiceItemVersioned(
   @xmlElement(required = true) description: String,
   @xmlElement(required = true) count: Int,
   @xmlElement(required = true) @xmlJavaTypeAdapter(classOf[BigDecimalAdapter]) amount: BigDecimal,
-  @xmlAttribute(required = false) invoiceVersion: Long = -1) {
+  @xmlAttribute(required = false, name = "invoice-version") invoiceVersion: Long = -1) {
   private def this() = this(null, 0, 0)
 
   def toInvoiceItem = InvoiceItem(description, count, amount)

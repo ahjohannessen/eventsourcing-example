@@ -21,7 +21,7 @@
       %td
         %a{ :href => { "invoice/%s" format invoice.id } } Invoice #{invoice.id}
       %td
-        = status(invoice)
+        = InvoiceInfo.status(invoice)
       %td
         = invoice.version
 

@@ -229,12 +229,6 @@ case class InvoicesInfo(
   formOption:    Option[InvoiceForm] = None) extends Info {
 
   def invoicesSorted = invoices.toList.sortWith { (a1, a2) => a1.id < a2.id }
-
-  def status(invoice: Invoice) = invoice match {
-    case _: DraftInvoice => "draft"
-    case _: SentInvoice  => "sent"
-    case _: PaidInvoice  => "paid"
-  }
 }
 
 object InvoicesInfo {
@@ -263,6 +257,12 @@ object InvoiceInfo {
 
   def apply(invoice: Invoice, errors: DomainError, form: InvoiceForm): InvoiceInfo =
     new InvoiceInfo(Some(invoice), Some(errors), Some(form))
+
+  def status(invoice: Invoice) = invoice match {
+    case _: DraftInvoice => "draft"
+    case _: SentInvoice  => "sent"
+    case _: PaidInvoice  => "paid"
+  }
 }
 
 // ----------------------------------------------------
