@@ -37,7 +37,7 @@ class InvoicesResource {
     } yield invoice
     validation match {
       case Success(di) =>
-        sc201(new Viewable(webPath("Invoice.draft"), InvoiceInfo(di)), invoicePath(di))
+        sc201(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices)), invoicePath(di))
       case Failure(err) =>
         sc409(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices, err, idForm)))
     }
@@ -160,7 +160,7 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
   def addInvoiceItemXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
     case None          => sc404(SysError.NotFound)
     case Some(invoice) => service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem).get match {
-      case Success(di)  => sc201(itemv, lastItemPath(di))
+      case Success(di)  => sc201(itemv.copy(invoiceVersion = di.version), lastItemPath(di))
       case Failure(err) => service.getInvoice(invoice.id) match {
         case None            => sc404(SysError.NotFound)
         case Some(refreshed) => sc409(AppError(err))
