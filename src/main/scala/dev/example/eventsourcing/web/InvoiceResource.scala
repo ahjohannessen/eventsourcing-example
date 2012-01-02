@@ -37,7 +37,7 @@ class InvoicesResource {
     } yield invoice
     validation match {
       case Success(di) =>
-        sc201(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices)), invoicePath(di))
+        sc201(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices)), di.id)
       case Failure(err) =>
         sc409(new Viewable(webPath("Invoices"), InvoicesInfo(service.getInvoices, err, idForm)))
     }
@@ -47,7 +47,7 @@ class InvoicesResource {
   @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   def createInvoiceXmlJson(invoice: DraftInvoice) = service.createInvoice(invoice.id).get match {
-    case Success(di)  => sc201(Invoices(service.getInvoices), invoicePath(di))
+    case Success(di)  => sc201(Invoices(service.getInvoices), di.id)
     case Failure(err) => sc409(AppError(err))
   }
 
@@ -64,9 +64,6 @@ class InvoicesResource {
   @Path("{id}")
   def invoice(@PathParam("id") id: String) =
     new InvoiceResource(service.getInvoice(id), service)
-
-  private def invoicePath(invoice: Invoice) =
-    "/invoice/%s" format invoice.id
 }
 
 class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
@@ -192,7 +189,7 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
     if (index < invoice.items.length) Some(invoice.items(index)) else None
 
   private def lastItemPath(invoice: Invoice): String =
-    "/invoice/%s/item/%s" format (invoice.id, invoice.items.length - 1)
+    "%s" format invoice.items.length - 1
 }
 
 class InvoiceItemResource(invoiceOption: Option[Invoice], invoiceItemOption: Option[InvoiceItem], service: InvoiceService, parent: InvoiceItemsResource) {
