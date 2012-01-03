@@ -32,7 +32,9 @@ The example application's RESTful service interface supports HTML, XML and JSON 
 
 ### HTML
 
-Enter [http://localhost:8080/invoice/invoice-3](http://localhost:8080/invoice/invoice-3) into your browser.
+Enter [http://localhost:8080/invoice/invoice-3](http://localhost:8080/invoice/invoice-3) into your browser. Provided you have created an invoice with id `invoice-3` before you should see something like
+
+![invoice-3](https://github.com/krasserm/eventsourcing-example/raw/master/doc/images/invoice-3.png)
 
 ### XML
 
