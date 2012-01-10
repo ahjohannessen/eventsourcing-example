@@ -1,5 +1,9 @@
+import java.io.File
+
 import sbt._
 import Keys._
+
+import com.mojolly.scalate.ScalatePlugin._
 
 object BuildSettings {
   val buildOrganization = "dev.example"
@@ -10,6 +14,12 @@ object BuildSettings {
     organization := buildOrganization,
     version      := buildVersion,
     scalaVersion := buildScalaVersion
+  )
+}
+
+object TemplateSettings {
+  val templateSettings = scalateSettings ++ Seq(
+    scalateTemplateDirectory.in(Compile) := new File("src/main/webapp/WEB-INF")
   )
 }
 
@@ -58,13 +68,14 @@ object Dependencies {
 
 object ExampleBuild extends Build {
   import BuildSettings._
+  import TemplateSettings._
   import Resolvers._
   import Dependencies._
 
   lazy val example = Project (
     "eventsourcing-example",
     file("."),
-    settings = buildSettings ++ Seq (
+    settings = buildSettings ++ templateSettings ++ Seq (
       resolvers            := Seq (typesafeRepo, journalioRepo),
       // compile dependencies (backend)
       libraryDependencies ++= Seq (akkaActor, akkaStm, journalio, netty, scalaz, zookeeper),

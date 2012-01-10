@@ -23,8 +23,6 @@ Run
 
 Then go to [http://localhost:8080](http://localhost:8080) and create some invoices.
 
-**Please note that the [Scalate](http://scalate.fusesource.org/) templates (used for HTML rendering) are not precompiled, so the first access to a template may take a few seconds.**
-
 Web API
 -------
 
