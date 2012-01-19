@@ -14,7 +14,7 @@ trait Appserver {
 
 object Appserver {
   def boot(): Appserver = new Appserver {
-    val eventLog = new JournalioEventLog with EventLogEntryPublication { val channel = new Channel[EventLogEntry] }
+    val eventLog = new JournalioEventLog with EventLogEntryPublication { val channel = new SimpleChannel[EventLogEntry] }
 
     // read models
     val invoiceReplicator = InvoiceReplicator.replay(eventLog, true)

@@ -10,7 +10,7 @@ import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state.EventProjectionCounter
 
 class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAfterEach with BeforeAndAfterAll {
-  val eventLog = new TestEventLog with EventLogEntryPublication { val channel = new Channel[EventLogEntry] }
+  val eventLog = new TestEventLog with EventLogEntryPublication { val channel = new SimpleChannel[EventLogEntry] }
   val service = InvoiceService(eventLog)
 
   import eventLog.channel

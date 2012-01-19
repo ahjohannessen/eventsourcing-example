@@ -2,7 +2,14 @@ package dev.example.eventsourcing.event
 
 import akka.actor.Actor
 
-class Channel[A] {
+trait Channel[A] {
+  def subscribe(subscriber: ChannelSubscriber[A])
+  def unsubscribe(subscriber: ChannelSubscriber[A])
+
+  def publish(message: A)
+}
+
+class SimpleChannel[A] extends Channel[A] {
   private val registry = Actor.actorOf(new SubscriberRegistry).start
 
   def subscribe(subscriber: ChannelSubscriber[A]) =
