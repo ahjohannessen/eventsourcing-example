@@ -16,9 +16,9 @@ class InvoiceStatistics extends EventProjection[Map[String, Int]] {
 }
 
 object InvoiceStatistics {
-  def replay(eventLog: EventLog): InvoiceStatistics = {
+  def recover(eventLog: EventLog): InvoiceStatistics = {
     val statistics = new InvoiceStatistics
-    statistics.replay(eventLog)
+    statistics.recover(eventLog)
     statistics.await()
     statistics
   }

@@ -83,7 +83,7 @@ trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[Eve
     Snapshot(entry.logId, entry.logEntryId, project(snapshot.state, entry.event))
   }
 
-  def replay(eventLog: EventLog) = currentSnapshot match {
+  def recover(eventLog: EventLog) = currentSnapshot match {
     case Snapshot(-1L, _, _) =>
       eventLog.iterator.foreach(update)
     case Snapshot(fromLogId, fromLogEntryId, event) => {

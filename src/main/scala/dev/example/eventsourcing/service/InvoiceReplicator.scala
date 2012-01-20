@@ -14,11 +14,11 @@ class InvoiceReplicator extends EventProjection[Map[String, Invoice]] {
 }
 
 object InvoiceReplicator {
-  def replay(eventLog: EventLog, resequenced: Boolean = false): InvoiceReplicator = {
+  def recover(eventLog: EventLog, resequenced: Boolean = false): InvoiceReplicator = {
     val replicator =
       if (resequenced) new InvoiceReplicator with Resequenced
       else             new InvoiceReplicator
-    replicator.replay(eventLog)
+    replicator.recover(eventLog)
     replicator.await()
     replicator
   }

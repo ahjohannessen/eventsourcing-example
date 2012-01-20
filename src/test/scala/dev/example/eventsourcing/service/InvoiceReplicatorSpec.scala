@@ -33,7 +33,7 @@ class InvoiceReplicatorSpec extends WordSpec with MustMatchers with BeforeAndAft
       "recover service state" in {
         val replicator = new InvoiceReplicator with Resequenced with EventProjectionCounter[Map[String, Invoice]]
         replicator.expect(3)
-        replicator.replay(eventLog)
+        replicator.recover(eventLog)
         replicator.await().state must be(service.currentState)
       }
     }

@@ -17,8 +17,8 @@ object Appserver {
     val eventLog = new JournalioEventLog with EventLogEntryPublication { val channel = new SimpleChannel[EventLogEntry] }
 
     // read models
-    val invoiceReplicator = InvoiceReplicator.replay(eventLog, true)
-    val invoiceStatistics = InvoiceStatistics.replay(eventLog)
+    val invoiceReplicator = InvoiceReplicator.recover(eventLog, true)
+    val invoiceStatistics = InvoiceStatistics.recover(eventLog)
 
     // services
     val invoiceService = InvoiceService(eventLog, invoiceReplicator.currentState)
