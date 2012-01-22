@@ -11,7 +11,7 @@ Blog
         <td><a href="https://github.com/krasserm/eventsourcing-example/tree/part-1">part-1</a></td>
     </tr>
     <tr>
-        <td>Building an Event-Sourced Web Application - Part 2: ... </td>
+        <td><a href="http://krasserm.blogspot.com/2012/01/building-event-sourced-web-application.html">Building an Event-Sourced Web Application - Part 2: Projections, Persistence, Consumers and Web Interface</a> </td>
         <td><a href="https://github.com/krasserm/eventsourcing-example/tree/part-2">part-2</a></td>
     </tr>
 </table>
