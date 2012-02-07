@@ -3,6 +3,7 @@ package dev.example.eventsourcing.event.impl
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.actor.ActorSystem
 import akka.dispatch._
 
 import journal.io.api._
@@ -14,7 +15,7 @@ import dev.example.eventsourcing.util.Serialization._
 /**
  * Experimental.
  */
-class JournalioEventLog extends EventLog {
+class JournalioEventLog(system: ActorSystem) extends EventLog {
   import scala.collection.JavaConverters._
 
   private val writeCounter = new AtomicLong(-1L)
@@ -44,9 +45,9 @@ class JournalioEventLog extends EventLog {
   }
 
   def appendAsync(event: Event): Future[EventLogEntry] = {
-    val promise = new DefaultCompletableFuture[EventLogEntry]
+    val promise = Promise[EventLogEntry]()(system.dispatcher)
     val location = journal.write(serialize(event), true) // sync
-    promise.completeWithResult(EventLogEntry(
+    promise.success(EventLogEntry(
       location.getDataFileId,
       location.getPointer,
       writeCounter.incrementAndGet(),

@@ -1,10 +1,12 @@
 package dev.example.eventsourcing.service
 
+import akka.actor.ActorSystem
+
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event._
 import dev.example.eventsourcing.state.EventProjection
 
-class InvoiceStatistics extends EventProjection[Map[String, Int]] {
+class InvoiceStatistics(val system: ActorSystem) extends EventProjection[Map[String, Int]] {
   val initialState = Map.empty[String, Int]
 
   def project = {
@@ -16,8 +18,8 @@ class InvoiceStatistics extends EventProjection[Map[String, Int]] {
 }
 
 object InvoiceStatistics {
-  def recover(eventLog: EventLog): InvoiceStatistics = {
-    val statistics = new InvoiceStatistics
+  def recover(sys: ActorSystem, eventLog: EventLog): InvoiceStatistics = {
+    val statistics = new InvoiceStatistics(sys)
     statistics.recover(eventLog)
     statistics.await()
     statistics

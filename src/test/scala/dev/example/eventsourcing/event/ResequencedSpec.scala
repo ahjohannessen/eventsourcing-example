@@ -2,17 +2,22 @@ package dev.example.eventsourcing.event
 
 import java.util.concurrent.{CountDownLatch, CopyOnWriteArrayList}
 
-import akka.actor.Actor
 
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
 import org.scalatest.matchers.MustMatchers
+import akka.actor.{ActorSystem, Actor}
 
 class ResequencedSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
-  override def afterAll = Actor.registry.shutdownAll()
+  val testSystem = ActorSystem("test")
+
+  override def afterAll = testSystem.shutdown()
 
   "A Resequenced instance" must {
     "resequence event log entries" in {
-      val receiver = new Receiver(10) with Resequenced
+      val receiver = new Receiver(10) with Resequenced {
+        val system = testSystem
+
+      }
 
       receiver.receive(EventLogEntry(-1, 1, 1, null))
       receiver.receive(EventLogEntry(-1, 4, 4, null))

@@ -29,7 +29,7 @@ object Resolvers {
 }
 
 object Versions {
-  val Akka   = "1.2"
+  val Akka   = "2.0-M4"
   val Jersey = "1.9.1"
   val Jetty  = "8.0.4.v20111024"
   val Netty  = "3.2.5.Final"
@@ -40,8 +40,8 @@ object Dependencies {
   import Versions._
 
   // compile dependencies
-  lazy val akkaActor    = "se.scalablesolutions.akka"  % "akka-actor"        % Akka    % "compile"
-  lazy val akkaStm      = "se.scalablesolutions.akka"  % "akka-stm"          % Akka    % "compile"
+  lazy val akkaActor    = "com.typesafe.akka"          % "akka-actor"        % Akka    % "compile"
+  lazy val akkaAgent    = "com.typesafe.akka"          % "akka-agent"        % Akka    % "compile"
   lazy val journalio    = "journalio"                  % "journalio"         % "1.0"   % "compile"
   lazy val jsr311       = "javax.ws.rs"                % "jsr311-api"        % "1.1.1" % "compile"
   lazy val jerseyCore   = "com.sun.jersey"             % "jersey-core"       % Jersey  % "compile"
@@ -78,7 +78,7 @@ object ExampleBuild extends Build {
     settings = buildSettings ++ templateSettings ++ Seq (
       resolvers            := Seq (typesafeRepo, journalioRepo),
       // compile dependencies (backend)
-      libraryDependencies ++= Seq (akkaActor, akkaStm, journalio, netty, scalaz, zookeeper),
+      libraryDependencies ++= Seq (akkaActor, akkaAgent, journalio, netty, scalaz, zookeeper),
       // compile dependencies (frontend)
       libraryDependencies ++= Seq (jsr311, jerseyCore, jerseyJson, jerseyServer, jerseySpring, springWeb, scalate),
       // container dependencies

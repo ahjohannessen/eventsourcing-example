@@ -1,5 +1,7 @@
 package dev.example.eventsourcing.service
 
+import akka.actor.ActorSystem
+
 import akka.dispatch._
 
 import dev.example.eventsourcing.domain._
@@ -82,7 +84,8 @@ object InvoiceService {
   private[service] def notSentError(invoiceId: String) =
     DomainError("invoice %s: not a sent invoice" format invoiceId)
 
-  def apply(log: EventLog, initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
+  def apply(sys: ActorSystem, log: EventLog, initial: Map[String, Invoice] = Map.empty) = new InvoiceService {
+    val system = sys
     val eventLog = log
     val initialState = initial
   }

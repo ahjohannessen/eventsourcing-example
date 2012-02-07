@@ -1,6 +1,7 @@
 package dev.example.eventsourcing.event
 
 import akka.dispatch._
+import akka.util.duration._
 
 trait Event
 
@@ -11,7 +12,7 @@ trait EventLog extends Iterable[EventLogEntry] {
   def iterator(fromLogId: Long, fromLogEntryId: Long): Iterator[EventLogEntry]
 
   def appendAsync(event: Event): Future[EventLogEntry]
-  def append(event: Event): EventLogEntry = appendAsync(event).get
+  def append(event: Event): EventLogEntry = Await.result(appendAsync(event), 5.seconds) // TODO: make configurable
 }
 
 trait EventLogEntryPublication extends EventLog {
@@ -19,7 +20,7 @@ trait EventLogEntryPublication extends EventLog {
 
   abstract override def appendAsync(event: Event): Future[EventLogEntry] = {
     val future = super.appendAsync(event)
-    future.onResult { case entry => channel.publish(entry) }
+    future.onSuccess { case entry => channel.publish(entry) }
     future
   }
 }

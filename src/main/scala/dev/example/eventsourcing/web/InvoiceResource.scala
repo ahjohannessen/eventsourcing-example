@@ -4,6 +4,9 @@ import javax.annotation.Resource
 import javax.ws.rs._
 import javax.ws.rs.core.MediaType._
 
+import akka.dispatch.Await
+import akka.util.duration._
+
 import scalaz._
 import Scalaz._
 
@@ -20,6 +23,8 @@ import dev.example.eventsourcing.service.InvoiceService
 //  Invoice resources (HTML/XML/JSON web interface)
 // ----------------------------------------------------
 
+// TODO: make all timeouts configurable
+
 @Component
 @Path("/invoice")
 class InvoicesResource {
@@ -33,7 +38,7 @@ class InvoicesResource {
     val idForm = new InvoiceIdForm(form.toMap)
     val validation = for {
       invoiceId <- idForm.toInvoiceId
-      invoice   <- service.createInvoice(invoiceId).get
+      invoice   <- Await.result(service.createInvoice(invoiceId), 5.seconds)
     } yield invoice
     validation match {
       case Success(di) =>
@@ -46,7 +51,7 @@ class InvoicesResource {
   @POST
   @Consumes(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def createInvoiceXmlJson(invoice: DraftInvoice) = service.createInvoice(invoice.id).get match {
+  def createInvoiceXmlJson(invoice: DraftInvoice) = Await.result(service.createInvoice(invoice.id), 5.seconds) match {
     case Success(di)  => sc201(Invoices(service.getInvoices), di.id)
     case Failure(err) => sc409(AppError(err))
   }
@@ -76,7 +81,7 @@ class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
       val addressForm = new InvoiceAddressForm(form.toMap)
       val validation = for {
         address <- addressForm.toInvoiceAddress
-        updated <- service.sendInvoiceTo(invoice.id, addressForm.versionOption, address).get
+        updated <- Await.result(service.sendInvoiceTo(invoice.id, addressForm.versionOption, address), 5.seconds)
       } yield updated
       validation match {
         case Success(si)  => sc200(new Viewable(webPath("Invoice.sent"), InvoiceInfo(si)))
@@ -95,7 +100,7 @@ class InvoiceResource(invoiceOption: Option[Invoice], service: InvoiceService) {
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   def sendInvoiceXmlJson(sentInvoice: SentInvoice) = invoiceOption match {
     case None          => sc404(SysError.NotFound)
-    case Some(invoice) => service.sendInvoiceTo(invoice.id, sentInvoice.versionOption, sentInvoice.address).get match {
+    case Some(invoice) => Await.result(service.sendInvoiceTo(invoice.id, sentInvoice.versionOption, sentInvoice.address), 5.seconds) match {
       case Success(si)  => sc200(si)
       case Failure(err) => service.getInvoice(invoice.id) match {
         case None            => sc404(SysError.NotFound)
@@ -136,7 +141,7 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
       val itemForm = new InvoiceItemForm(form.toMap)
       val validation = for {
         item    <- itemForm.toInvoiceItem
-        updated <- service.addInvoiceItem(invoice.id, itemForm.versionOption, item).get
+        updated <- Await.result(service.addInvoiceItem(invoice.id, itemForm.versionOption, item), 5.seconds)
       } yield updated
       validation match {
         case Success(di) =>
@@ -156,7 +161,7 @@ class InvoiceItemsResource(invoiceOption: Option[Invoice], service: InvoiceServi
   @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
   def addInvoiceItemXmlJson(itemv: InvoiceItemVersioned) = invoiceOption match {
     case None          => sc404(SysError.NotFound)
-    case Some(invoice) => service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem).get match {
+    case Some(invoice) => Await.result(service.addInvoiceItem(invoice.id, itemv.invoiceVersionOption, itemv.toInvoiceItem), 5.seconds) match {
       case Success(di)  => sc201(InvoiceItems(di.items), lastItemPath(di))
       case Failure(err) => service.getInvoice(invoice.id) match {
         case None            => sc404(SysError.NotFound)

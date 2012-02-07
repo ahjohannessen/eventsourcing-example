@@ -1,5 +1,6 @@
 package dev.example.eventsourcing.event.impl
 
+import akka.actor.ActorSystem
 import akka.dispatch._
 
 import org.apache.bookkeeper.client.AsyncCallback.AddCallback
@@ -13,7 +14,7 @@ import dev.example.eventsourcing.util.Serialization._
 /**
  * Experimental.
  */
-class BookkeeperEventLog extends EventLog {
+class BookkeeperEventLog(system: ActorSystem) extends EventLog {
   private val bookkeeper = new BookKeeper("localhost:2181")
 
   private val secret = "secret".getBytes
@@ -30,11 +31,11 @@ class BookkeeperEventLog extends EventLog {
     if (fromLogId <= readLogId) new EventIterator(fromLogId, fromLogEntryId) else new EmptyIterator[EventLogEntry]
 
   def appendAsync(event: Event): Future[EventLogEntry] = {
-    val promise = new DefaultCompletableFuture[EventLogEntry]()
+    val promise = Promise[EventLogEntry]()(system.dispatcher)
     writeLog.asyncAddEntry(serialize(event), new AddCallback {
       def addComplete(rc: Int, lh: LedgerHandle, entryId: Long, ctx: AnyRef) {
-        if (rc == 0) promise.completeWithResult(EventLogEntry(writeLogId, entryId, entryId, event))
-        else         promise.completeWithException(BKException.create(rc))
+        if (rc == 0) promise.success(EventLogEntry(writeLogId, entryId, entryId, event))
+        else         promise.failure(BKException.create(rc))
       }
     }, null)
     promise

@@ -1,5 +1,7 @@
 package dev.example.eventsourcing.service
 
+import akka.actor.ActorSystem
+
 import dev.example.eventsourcing.domain._
 import dev.example.eventsourcing.event.EventLog
 
@@ -17,7 +19,7 @@ trait PaymentService {
 }
 
 object PaymentService {
-  def apply(log: EventLog) = new PaymentService {
+  def apply(sys: ActorSystem, log: EventLog) = new PaymentService {
     val eventLog = log
   }
 }

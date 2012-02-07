@@ -1,9 +1,11 @@
 package dev.example.eventsourcing.state
 
+import scala.concurrent.stm.{Txn, Ref}
+
 import akka.actor._
 import akka.agent.Agent
 import akka.dispatch._
-import akka.stm._
+import akka.util.duration._
 
 import scalaz._
 
@@ -19,31 +21,26 @@ trait Projection[S, A] {
 
 trait UpdateProjection[S, A] extends Projection[S, A] {
   private lazy val ref = Ref(initialState)
-  private lazy val updater = Actor.actorOf(new Updater).start
+  private lazy val updater = system.actorOf(Props(new Updater)) // TODO: thread-based dispatcher if write-ahead
 
+  def system: ActorSystem
   def eventLog: EventLog
   def writeAhead: Boolean = true
 
-  def currentState: S = ref()
+  def currentState: S = ref.single.get
 
   def transacted[B <: A](update: S => Update[Event, B]): Future[DomainValidation[B]] = {
-    val promise = new DefaultCompletableFuture[DomainValidation[B]]
-    def dispatch = updater ! ApplyUpdate(update, promise.asInstanceOf[CompletableFuture[DomainValidation[A]]])
+    val promise = Promise[DomainValidation[B]]()(system.dispatcher)
+    def dispatch = updater ! ApplyUpdate(update, promise.asInstanceOf[Promise[DomainValidation[A]]])
 
-    if (Stm.activeTransaction) {
-      currentState // join
-      deferred(dispatch)
-    } else {
-      dispatch
-    }
+    val txn = Txn.findCurrent
+    if (txn.isDefined) Txn.afterCommit(status ⇒ dispatch)(txn.get) else  dispatch
     promise
   }
 
-  private case class ApplyUpdate(update: S => Update[Event, A], promise: CompletableFuture[DomainValidation[A]])
+  private case class ApplyUpdate(update: S => Update[Event, A], promise: Promise[DomainValidation[A]])
 
   private class Updater extends Actor {
-    if (writeAhead) self.dispatcher = Dispatchers.newThreadBasedDispatcher(self)
-
     def receive = {
       case ApplyUpdate(u, p) => {
         val current = currentState
@@ -52,11 +49,11 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
         update() match {
           case (events, s @ Success(result)) => {
             log(events.reverse) // TODO: handle errors
-            ref set project(current, result.asInstanceOf[A])
-            p.completeWithResult(s)
+            ref.single.transformAndGet(_ => project(current, result.asInstanceOf[A]))
+            p.success(s)
           }
           case (_, f) => {
-            p.completeWithResult(f)
+            p.success(f)
           }
         }
       }
@@ -69,7 +66,9 @@ trait UpdateProjection[S, A] extends Projection[S, A] {
 }
 
 trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[EventLogEntry] {
-  private lazy val agent = Agent(Snapshot(-1L, -1L, initialState))
+  private lazy val agent = Agent(Snapshot(-1L, -1L, initialState))(system)
+
+  def system: ActorSystem
 
   def currentState: S = currentSnapshot.state
 
@@ -93,5 +92,5 @@ trait EventProjection[S] extends Projection[S, Event] with ChannelSubscriber[Eve
     }
   }
 
-  protected def await() = agent.await()
+  protected def await() = agent.await(5.seconds) // TODO: make configurable
 }

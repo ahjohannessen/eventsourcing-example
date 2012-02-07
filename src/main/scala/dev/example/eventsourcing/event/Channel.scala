@@ -1,6 +1,7 @@
 package dev.example.eventsourcing.event
 
-import akka.actor.Actor
+import akka.actor._
+
 
 trait Channel[A] {
   def subscribe(subscriber: ChannelSubscriber[A])
@@ -9,8 +10,8 @@ trait Channel[A] {
   def publish(message: A)
 }
 
-class SimpleChannel[A] extends Channel[A] {
-  private val registry = Actor.actorOf(new SubscriberRegistry).start
+class SimpleChannel[A](system: ActorSystem) extends Channel[A] {
+  private val registry = system.actorOf(Props(new SubscriberRegistry))
 
   def subscribe(subscriber: ChannelSubscriber[A]) =
     registry ! Subscribe(subscriber)
