@@ -29,7 +29,7 @@ object Resolvers {
 }
 
 object Versions {
-  val Akka   = "2.0-M4"
+  val Akka   = "2.0-RC1"
   val Jersey = "1.9.1"
   val Jetty  = "8.0.4.v20111024"
   val Netty  = "3.2.5.Final"

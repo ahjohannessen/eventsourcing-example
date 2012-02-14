@@ -4,9 +4,10 @@ import akka.actor._
 import akka.dispatch._
 import akka.pattern.ask
 import akka.util.duration._
+import akka.util.Timeout
 
 class TestEventLog(system: ActorSystem) extends EventLog {
-  implicit val timeout = system.settings.ActorTimeout
+  implicit val timeout = Timeout(5 seconds) // TODO: make configurable
 
   val logger = system.actorOf(Props(new Logger))
   val eventLogId = TestEventLog.nextId()
