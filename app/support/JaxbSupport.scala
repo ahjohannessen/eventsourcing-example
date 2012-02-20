@@ -16,7 +16,7 @@ case class JaxbJson(obj: AnyRef)
 case class Jaxb(obj: AnyRef)
 
 trait JaxbSupport extends JaxbBodyParsers with JaxbWriteables with JaxbContentTypeOfs {
-  // ...
+  def location(uri: String, elem: String) = "%s/%s" format (uri.split('?')(0), elem)
 }
 
 object JaxbSupport {

@@ -4,8 +4,6 @@ import com.sun.jersey.api.json._
 
 import scalaz._
 
-import play.api._
-import play.api.http.HeaderNames._
 import play.api.mvc._
 import play.api.libs.concurrent._
 
@@ -47,11 +45,11 @@ object Application extends Controller with JaxbSupport {
   }
 
   def addInvoice = Action(jaxb.parse[DraftInvoice]) { implicit request => Async {
-    invoiceService.createInvoice(request.body.id).map { result => result match {
+    invoiceService.createInvoice(request.body.id).asPromise.map { _ match {
       case Failure(err) => Conflict(Jaxb(AppError(err)))
       case Success(inv) => Created(Jaxb(Invoices(invoiceService.getInvoices)))
-        .withHeaders(LOCATION -> "%s/%s".format(request.path, request.body.id)) // TODO: prepend protocol, host and port
-    }}.asPromise
+        .withHeaders(LOCATION -> location(request.uri, request.body.id))
+    }}
   }}
 
   def addInvoiceItem(id: String) = Action(jaxb.parse[InvoiceItemVersioned]) { implicit request => Async {
@@ -59,11 +57,11 @@ object Application extends Controller with JaxbSupport {
     val invoiceItem = request.body.toInvoiceItem
     invoiceService.getInvoice(id) match {
       case None      => Promise.pure(NotFound(Jaxb(SysError.NotFound)))
-      case Some(inv) => invoiceService.addInvoiceItem(id, versionOption, invoiceItem).map { result => result match {
+      case Some(inv) => invoiceService.addInvoiceItem(id, versionOption, invoiceItem).asPromise.map { _ match {
         case Failure(err) => Conflict(Jaxb(AppError(err)))
         case Success(upd) => Created(Jaxb(InvoiceItems(upd.items)))
-          .withHeaders(LOCATION -> "%s/%s".format(request.path, lastItemPath(upd))) // TODO: prepend protocol, host and port
-      }}.asPromise
+          .withHeaders(LOCATION -> location(request.uri, lastItemPath(upd)))
+      }}
     }
   }}
 
