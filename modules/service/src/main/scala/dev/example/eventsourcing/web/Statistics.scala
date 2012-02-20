@@ -1,34 +1,10 @@
 package dev.example.eventsourcing.web
 
 import java.util.{List => JList}
-import javax.annotation.Resource
-import javax.ws.rs._
-import javax.ws.rs.core.MediaType._
 import javax.xml.bind.annotation._
-
-import com.sun.jersey.api.view.Viewable
-
-import org.springframework.stereotype.Component
 
 import dev.example.eventsourcing.service.InvoiceStatistics
 import dev.example.eventsourcing.util.Binding._
-
-@Component
-@Path("/statistics")
-class StatisticsResource {
-  @Resource
-  var invoiceStatistics: InvoiceStatistics = _
-
-  @GET
-  @Produces(Array(TEXT_XML, APPLICATION_XML, APPLICATION_JSON))
-  def statisticsXmlJson =
-    sc200(Statistics(InvoiceUpdate(invoiceStatistics)))
-
-  @GET
-  @Produces(Array(TEXT_HTML))
-  def statisticsHtml =
-    sc200(new Viewable(webPath("Statistics"), Statistics(InvoiceUpdate(invoiceStatistics))))
-}
 
 @XmlRootElement(name = "statistics")
 case class Statistics(invoiceUpdates: List[InvoiceUpdate]) {
@@ -48,8 +24,8 @@ case class Statistics(invoiceUpdates: List[InvoiceUpdate]) {
 @XmlRootElement(name = "invoice-update")
 @XmlAccessorType(XmlAccessType.FIELD)
 case class InvoiceUpdate(
-  @xmlAttribute(name = "invoice-id") invoiceId: String,
-  @xmlElement(name = "update-count") updateCount: Int) {
+                          @xmlAttribute(name = "invoice-id") invoiceId: String,
+                          @xmlElement(name = "update-count") updateCount: Int) {
   private def this() = this(null, 0)
 }
 
