@@ -120,17 +120,17 @@ The result is
      "draft-invoice":
      {
       "@id":"123",
-      "@version":"1",
-      "total":"8.2",
-      "sum":"8.2",
-      "discount":"0",
+      "@version":1,
+      "total":8.2,
+      "sum":8.2,
+      "discount":0,
       "items":
       {
        "item":
        {
         "description":"item-1",
-        "count":"2",
-        "amount":"4.1"
+        "count":2,
+        "amount":4.1
        }
       }
      }
@@ -138,7 +138,7 @@ The result is
 
 Please note that you can even use different MIME types for the Content-Type and Accept headers in a single command. The following example appends another invoice item using a JSON representation but accepts responses in XML representation:
 
-    curl -v -H "Content-Type: application/json" -H "Accept: text/xml" -d '{"item":{"description":"item-2","count":"1","amount":"3.4"}}' http://localhost:9000/invoice/123/item
+    curl -v -H "Content-Type: application/json" -H "Accept: text/xml" -d '{"item":{"description":"item-2","count":1,"amount":3.4}}' http://localhost:9000/invoice/123/item
 
 The response is 
 

@@ -17,7 +17,7 @@ object Application extends Controller with JaxbSupport {
   import global.Global.appserver._
 
   val paths = "dev.example.eventsourcing.domain:dev.example.eventsourcing.web"
-  val config = JSONConfiguration.mapped().rootUnwrapping(false).build()
+  val config = JSONConfiguration.natural().rootUnwrapping(false).build()
 
   // can be used for JAXB-based JSON and XML processing
   implicit val jsonJaxbContext = new JSONJAXBContext(config, paths)
