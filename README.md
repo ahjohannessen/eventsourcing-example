@@ -1,3 +1,8 @@
+News
+----
+
+* Work on branch [play](https://github.com/krasserm/eventsourcing-example/tree/play) replaces the Jersey and Scalate-based web layer with [Play Framework 2.0](https://github.com/playframework/Play20/)
+
 Blog
 ----
 
