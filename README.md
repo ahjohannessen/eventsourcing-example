@@ -27,6 +27,10 @@ Blog
         <td><a href="http://krasserm.blogspot.com/2012/01/building-event-sourced-web-application.html">Building an Event-Sourced Web Application - Part 2: Projections, Persistence, Consumers and Web Interface</a> </td>
         <td><a href="https://github.com/krasserm/eventsourcing-example/tree/part-2">part-2</a></td>
     </tr>
+    <tr>
+        <td><a href="http://krasserm.blogspot.com/2012/02/using-jaxb-for-xml-and-json-apis-in.html">Using JAXB for XML and JSON APIs in Scala Web Applications </a> </td>
+        <td><a href="https://github.com/krasserm/eventsourcing-example/tree/play">play</a></td>
+    </tr>
 </table>
 
 Run
