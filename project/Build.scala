@@ -11,7 +11,7 @@ object ApplicationBuild extends Build {
   val journalioRepo = "Journalio Repo" at "https://raw.github.com/sbtourist/Journal.IO/master/m2/repo"
 
   // Versions
-  val Akka   = "2.0-RC1"
+  val Akka   = "2.0-RC3"
   val Jersey = "1.9.1"
   val Netty  = "3.2.5.Final"
 
