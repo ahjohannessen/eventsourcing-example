@@ -26,7 +26,12 @@ object ApplicationBuild extends Build {
     "journalio"                  % "journalio"         % "1.0"       % "compile",
     "org.jboss.netty"            % "netty"             % Netty       % "compile",
     "org.scalaz"                 % "scalaz-core_2.9.1" % "6.0.3"     % "compile",
-    "org.apache.zookeeper"       % "zookeeper"         % "3.3.3"     % "compile",
+    "org.apache.zookeeper"       % "zookeeper"         % "3.3.3"     % "compile" excludeAll(
+      ExclusionRule(organization = "com.sun.jdmk"),
+      ExclusionRule(organization = "com.sun.jmx"),
+      ExclusionRule(organization = "javax.jms")
+    ),
+
     // test dependencies
     "org.scalatest"              % "scalatest_2.9.1"   % "1.6.1"     % "test"
   )
