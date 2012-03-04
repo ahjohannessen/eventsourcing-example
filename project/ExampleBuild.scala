@@ -52,7 +52,11 @@ object Dependencies {
   lazy val scalate      = "org.fusesource.scalate"     % "scalate-core"      % "1.5.2" % "compile"
   lazy val scalaz       = "org.scalaz"                 % "scalaz-core_2.9.1" % "6.0.3" % "compile"
   lazy val springWeb    = "org.springframework"        % "spring-web"        % Spring  % "compile"
-  lazy val zookeeper    = "org.apache.zookeeper"       % "zookeeper"         % "3.3.3" % "compile"
+  lazy val zookeeper    = "org.apache.zookeeper"       % "zookeeper"         % "3.3.3" % "compile" excludeAll(
+    ExclusionRule(organization = "com.sun.jdmk"),
+    ExclusionRule(organization = "com.sun.jmx"),
+    ExclusionRule(organization = "javax.jms")
+  )
 
   // container dependencies TODO: switch from "compile" to "container" when using xsbt-web-plugin
   lazy val jettyServer  = "org.eclipse.jetty"          % "jetty-server"      % Jetty   % "compile"
